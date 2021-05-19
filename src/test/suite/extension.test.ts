@@ -15,13 +15,40 @@ suite("Extension Test Suite",()=>{
 			)
 			assert.equal(result,null)
 		})
-		test("returns required spaces on unindented strings",()=>{
+		test("returns required spaces on unindented lines",()=>{
 			const result=myExtension.getVerticalMoveInsertion(8,
 				6,"was he!re",
 				1,"!"
 			)
 			assert.equal(result,
 				   "     "
+			)
+		})
+		test("returns required tabs+spaces for a blank line after tab-indented line",()=>{
+			const result=myExtension.getVerticalMoveInsertion(8,
+				3,"\t[1!,2,3]",
+				0,""
+			)
+			assert.equal(result,
+				  "\t  "
+			)
+		})
+		test("returns required tabs+spaces for a short line after tab-indented line",()=>{
+			const result=myExtension.getVerticalMoveInsertion(4,
+				3,"\t[1!,2,3]",
+				1,"!"
+			)
+			assert.equal(result,
+				  "\t  "
+			)
+		})
+		test("returns required spaces for a longer line after tab-indented line",()=>{
+			const result=myExtension.getVerticalMoveInsertion(4,
+				3,"\t[1!,2,3]",
+				4,"!!!!"
+			)
+			assert.equal(result,
+				"  "
 			)
 		})
 	})
