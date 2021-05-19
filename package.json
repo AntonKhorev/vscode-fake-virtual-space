@@ -10,14 +10,21 @@
 		"Other"
 	],
 	"activationEvents": [
-		"onCommand:vscode-fake-virtual-space.helloWorld"
+		"onCommand:fakeVirtualSpace.cursorDown"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
 		"commands": [
 			{
-				"command": "vscode-fake-virtual-space.helloWorld",
-				"title": "Hello World"
+				"command": "fakeVirtualSpace.cursorDown",
+				"title": "Move Cursor Down with Fake Virtual Space"
+			}
+		],
+		"keybindings": [
+			{
+				"command": "fakeVirtualSpace.cursorDown",
+				"key": "down",
+				"when": "editorTextFocus && !editorReadonly && !suggestWidgetVisible && !parameterHintsVisible"
 			}
 		]
 	},
