@@ -50,9 +50,8 @@ export function getVerticalMoveInsertion(
 ): string|null {
 	if (character2<text2.length) return null
 	let indent=''
-	const addIndent=(char:string):string=>{
-		indent+=char
-		return char
+	const inSameTabSlot=(width1:number,width2:number):boolean=>{
+		return Math.floor(width1/tabSize)==Math.floor(width2/tabSize)
 	}
 	const nextWidth=(width:number,char:string):number=>{
 		if (char=='\t') {
@@ -61,8 +60,18 @@ export function getVerticalMoveInsertion(
 			return width+1
 		}
 	}
-	const inSameTabSlot=(width1:number,width2:number):boolean=>{
-		return Math.floor(width1/tabSize)==Math.floor(width2/tabSize)
+	const nextWidthAddingToIndent=(width:number,char:string):number=>{
+		while (
+			char=='\t' &&
+			indent.length>0 &&
+			indent[indent.length-1]==' ' &&
+			inSameTabSlot(width,width-1)
+		) {
+			indent=indent.slice(0,-1)
+			width--
+		}
+		indent+=char
+		return nextWidth(width,char)
 	}
 	let prevWidth1
 	let width1=0
@@ -75,9 +84,9 @@ export function getVerticalMoveInsertion(
 			if (i2<text2.length) {
 				width2=nextWidth(width2,text2[i2++])
 			} else if (text1[i1]=='\t' && inSameTabSlot(prevWidth1,width2)) {
-				width2=nextWidth(width2,addIndent('\t'))
+				width2=nextWidthAddingToIndent(width2,'\t')
 			} else {
-				width2=nextWidth(width2,addIndent(' '))
+				width2=nextWidthAddingToIndent(width2,' ')
 			}
 		}
 	}

@@ -51,5 +51,14 @@ suite("Extension Test Suite",()=>{
 				"  "
 			)
 		})
+		test("returns only tabs for an empty line after undindented line with tab at end",()=>{
+			const result=myExtension.getVerticalMoveInsertion(8,
+				4,"xyz\t",
+				0,""
+			)
+			assert.equal(result,
+				"\t"
+			)
+		})
 	})
 })
