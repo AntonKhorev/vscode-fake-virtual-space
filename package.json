@@ -10,11 +10,16 @@
 		"Other"
 	],
 	"activationEvents": [
+		"onCommand:fakeVirtualSpace.cursorUp",
 		"onCommand:fakeVirtualSpace.cursorDown"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
 		"commands": [
+			{
+				"command": "fakeVirtualSpace.cursorUp",
+				"title": "Move Cursor Up with Fake Virtual Space"
+			},
 			{
 				"command": "fakeVirtualSpace.cursorDown",
 				"title": "Move Cursor Down with Fake Virtual Space"
@@ -24,6 +29,11 @@
 			{
 				"command": "fakeVirtualSpace.cursorDown",
 				"key": "down",
+				"when": "editorTextFocus && !editorReadonly && !suggestWidgetVisible && !parameterHintsVisible"
+			},
+			{
+				"command": "fakeVirtualSpace.cursorUp",
+				"key": "up",
 				"when": "editorTextFocus && !editorReadonly && !suggestWidgetVisible && !parameterHintsVisible"
 			}
 		]
