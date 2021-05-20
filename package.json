@@ -9,6 +9,7 @@
 	"categories": [
 		"Other"
 	],
+	"license": "BSD-2-Clause",
 	"activationEvents": [
 		"onCommand:fakeVirtualSpace.cursorUp",
 		"onCommand:fakeVirtualSpace.cursorDown",
