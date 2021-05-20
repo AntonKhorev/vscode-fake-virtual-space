@@ -9,6 +9,7 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand('fakeVirtualSpace.cursorUp',cursorUp),
 		vscode.commands.registerCommand('fakeVirtualSpace.cursorDown',cursorDown),
+		vscode.commands.registerCommand('fakeVirtualSpace.cursorLeft',cursorLeft),
 		vscode.commands.registerCommand('fakeVirtualSpace.cursorRight',cursorRight)
 	)
 }
@@ -17,23 +18,12 @@ export function deactivate() {
 	// TODO do undos if necessary
 }
 
+async function cursorLeft() {
+	cursorHorizontalMove('cursorLeft',-1)
+}
+
 async function cursorRight() {
-	const editor=vscode.window.activeTextEditor!
-	const selectionBefore=editor.selection
-	const textBefore=editor.document.lineAt(selectionBefore.active).text
-	if (selectionBefore.active.character<textBefore.length) {
-		await vscode.commands.executeCommand('cursorRight')
-		return
-	}
-	await undoFiddleIfNecessary(editor)
-	const selectionAfter=editor.selection
-	const nSpacesRequired=selectionBefore.active.character+1-selectionAfter.active.character
-	if (nSpacesRequired>0) {
-		await editor.edit(editBuilder=>{
-			editBuilder.insert(selectionAfter.active,' '.repeat(nSpacesRequired))
-		})
-		rememberFiddle(editor)
-	}
+	cursorHorizontalMove('cursorRight',+1)
 }
 
 function cursorUp() {
@@ -42,6 +32,28 @@ function cursorUp() {
 
 function cursorDown() {
 	cursorVerticalMove('cursorDown')
+}
+
+async function cursorHorizontalMove(moveCommand:string,moveDelta:number) {
+	const editor=vscode.window.activeTextEditor!
+	const selectionBefore=editor.selection
+	await undoFiddleIfNecessary(editor)
+	const text=editor.document.lineAt(selectionBefore.active).text
+	if (
+		moveDelta>0 && selectionBefore.active.character<text.length ||
+		moveDelta<0 && selectionBefore.active.character<=text.length
+	) {
+		await vscode.commands.executeCommand(moveCommand)
+		return
+	}
+	const selectionAfter=editor.selection
+	const nSpacesRequired=selectionBefore.active.character+moveDelta-selectionAfter.active.character
+	if (nSpacesRequired>0) {
+		await editor.edit(editBuilder=>{
+			editBuilder.insert(selectionAfter.active,' '.repeat(nSpacesRequired))
+		})
+		rememberFiddle(editor)
+	}
 }
 
 async function cursorVerticalMove(moveCommand:string) {
@@ -56,9 +68,7 @@ async function cursorVerticalMove(moveCommand:string) {
 		selectionAfter.active.character,
 		editor.document.lineAt(selectionAfter.active).text
 	)
-	await undoFiddleIfNecessary(editor,()=>{
-		editor.selection=selectionAfter
-	})
+	await undoFiddleIfNecessary(editor)
 	if (insertion!=null) {
 		await editor.edit(editBuilder=>{
 			editBuilder.insert(selectionAfter.active,insertion)
@@ -67,12 +77,15 @@ async function cursorVerticalMove(moveCommand:string) {
 	}
 }
 
-async function undoFiddleIfNecessary(editor:vscode.TextEditor,doAfterUndo=()=>{}) {
+async function undoFiddleIfNecessary(editor:vscode.TextEditor) {
 	const versionForUndo=documentVersionsAfterFiddle.get(editor.document)
 	documentVersionsAfterFiddle.delete(editor.document)
 	if (versionForUndo===editor.document.version) {
+		const savedLine=editor.selection.active.line
+		const savedCharacter=editor.selection.active.character
 		await vscode.commands.executeCommand('undo')
-		doAfterUndo()
+		const restoredPosition=new vscode.Position(savedLine,Math.min(savedCharacter,editor.document.lineAt(savedLine).text.length))
+		editor.selection=new vscode.Selection(restoredPosition,restoredPosition)
 	}
 }
 
