@@ -22,22 +22,32 @@ function cursorDown() {
 	cursorVerticalMove('cursorDown')
 }
 
+const documentVersionsAfterSpaceInsert:Map<vscode.TextDocument,number>=new Map()
+
 async function cursorVerticalMove(moveCommand:string) {
 	const editor=vscode.window.activeTextEditor!
-	const positionBefore=editor.selection.start
+	const document=editor.document
+	const selectionBefore=editor.selection
 	await vscode.commands.executeCommand(moveCommand)
-	const positionAfter=editor.selection.start
+	const selectionAfter=editor.selection
 	const insertion=getVerticalMoveInsertion(
 		Number(editor.options.tabSize),
-		positionBefore.character,
-		editor.document.lineAt(positionBefore).text,
-		positionAfter.character,
-		editor.document.lineAt(positionAfter).text
+		selectionBefore.start.character,
+		document.lineAt(selectionBefore.start).text,
+		selectionAfter.start.character,
+		document.lineAt(selectionAfter.start).text
 	)
+	const versionForUndo=documentVersionsAfterSpaceInsert.get(document)
+	documentVersionsAfterSpaceInsert.delete(document)
+	if (versionForUndo===document.version) {
+		await vscode.commands.executeCommand('undo')
+		editor.selection=selectionAfter
+	}
 	if (insertion!=null) {
-		editor.edit(editBuilder=>{
-			editBuilder.insert(positionAfter,insertion)
+		await editor.edit(editBuilder=>{
+			editBuilder.insert(selectionAfter.start,insertion)
 		})
+		documentVersionsAfterSpaceInsert.set(document,document.version)
 	}
 }
 
