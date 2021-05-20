@@ -10,31 +10,15 @@ export function activate(context: vscode.ExtensionContext) {
 		documentVersionsAfterFiddle.delete(document)
 	})
 	context.subscriptions.push(
-		vscode.commands.registerCommand('fakeVirtualSpace.cursorUp',cursorUp),
-		vscode.commands.registerCommand('fakeVirtualSpace.cursorDown',cursorDown),
-		vscode.commands.registerCommand('fakeVirtualSpace.cursorLeft',cursorLeft),
-		vscode.commands.registerCommand('fakeVirtualSpace.cursorRight',cursorRight)
+		vscode.commands.registerCommand('fakeVirtualSpace.cursorUp'   ,()=>cursorVerticalMove('cursorUp')),
+		vscode.commands.registerCommand('fakeVirtualSpace.cursorDown' ,()=>cursorVerticalMove('cursorDown')),
+		vscode.commands.registerCommand('fakeVirtualSpace.cursorLeft' ,()=>cursorHorizontalMove('cursorLeft',-1)),
+		vscode.commands.registerCommand('fakeVirtualSpace.cursorRight',()=>cursorHorizontalMove('cursorRight',+1))
 	)
 }
 
 export function deactivate() {
 	// TODO do undos if necessary
-}
-
-function cursorLeft() {
-	cursorHorizontalMove('cursorLeft',-1)
-}
-
-function cursorRight() {
-	cursorHorizontalMove('cursorRight',+1)
-}
-
-function cursorUp() {
-	cursorVerticalMove('cursorUp')
-}
-
-function cursorDown() {
-	cursorVerticalMove('cursorDown')
 }
 
 async function cursorHorizontalMove(moveCommand:string,moveDelta:number) {
