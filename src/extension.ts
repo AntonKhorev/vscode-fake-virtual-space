@@ -18,12 +18,24 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand('fakeVirtualSpace.cursorUp'   ,()=>cursorVerticalMove('cursorUp')),
 		vscode.commands.registerCommand('fakeVirtualSpace.cursorDown' ,()=>cursorVerticalMove('cursorDown')),
 		vscode.commands.registerCommand('fakeVirtualSpace.cursorLeft' ,()=>cursorHorizontalMove('cursorLeft',-1)),
-		vscode.commands.registerCommand('fakeVirtualSpace.cursorRight',()=>cursorHorizontalMove('cursorRight',+1))
+		vscode.commands.registerCommand('fakeVirtualSpace.cursorRight',()=>cursorHorizontalMove('cursorRight',+1)),
+		vscode.commands.registerCommand('fakeVirtualSpace.cursorEnd',cursorEnd)
 	)
 }
 
 export function deactivate() {
 	// TODO do undos if necessary
+}
+
+async function cursorEnd() {
+	const releaseLock=await lock.acquire()
+	try {
+		const editor=vscode.window.activeTextEditor!
+		await undoFiddleIfNecessary(editor)
+		await vscode.commands.executeCommand('cursorEnd')
+	} finally {
+		releaseLock()
+	}
 }
 
 async function cursorHorizontalMove(moveCommand:string,moveDelta:number) {

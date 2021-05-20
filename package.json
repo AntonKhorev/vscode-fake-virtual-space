@@ -13,7 +13,8 @@
 		"onCommand:fakeVirtualSpace.cursorUp",
 		"onCommand:fakeVirtualSpace.cursorDown",
 		"onCommand:fakeVirtualSpace.cursorLeft",
-		"onCommand:fakeVirtualSpace.cursorRight"
+		"onCommand:fakeVirtualSpace.cursorRight",
+		"onCommand:fakeVirtualSpace.cursorEnd"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
@@ -33,6 +34,10 @@
 			{
 				"command": "fakeVirtualSpace.cursorRight",
 				"title": "Move Cursor Right with Fake Virtual Space"
+			},
+			{
+				"command": "fakeVirtualSpace.cursorEnd",
+				"title": "Move Cursor to EOL with Fake Virtual Space"
 			}
 		],
 		"keybindings": [
@@ -54,6 +59,11 @@
 			{
 				"command": "fakeVirtualSpace.cursorRight",
 				"key": "right",
+				"when": "editorTextFocus && !editorReadonly && !suggestWidgetVisible && !parameterHintsVisible"
+			},
+			{
+				"command": "fakeVirtualSpace.cursorEnd",
+				"key": "end",
 				"when": "editorTextFocus && !editorReadonly && !suggestWidgetVisible && !parameterHintsVisible"
 			}
 		]
