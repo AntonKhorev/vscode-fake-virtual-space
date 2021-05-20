@@ -1,18 +1,20 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode'
 
-// this method is called when your extension is activated
-// your extension is activated the very first time the command is executed
+const documentVersionsAfterSpaceInsert:Map<vscode.TextDocument,number>=new Map()
+
 export function activate(context: vscode.ExtensionContext) {
+	vscode.workspace.onDidCloseTextDocument(document=>{
+		documentVersionsAfterSpaceInsert.delete(document)
+	})
 	context.subscriptions.push(
 		vscode.commands.registerCommand('fakeVirtualSpace.cursorUp',cursorUp),
 		vscode.commands.registerCommand('fakeVirtualSpace.cursorDown',cursorDown)
 	)
 }
 
-// this method is called when your extension is deactivated
-export function deactivate() {}
+export function deactivate() {
+	// TODO do undos if necessary
+}
 
 function cursorUp() {
 	cursorVerticalMove('cursorUp')
@@ -21,8 +23,6 @@ function cursorUp() {
 function cursorDown() {
 	cursorVerticalMove('cursorDown')
 }
-
-const documentVersionsAfterSpaceInsert:Map<vscode.TextDocument,number>=new Map()
 
 async function cursorVerticalMove(moveCommand:string) {
 	const editor=vscode.window.activeTextEditor!
