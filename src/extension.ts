@@ -1,8 +1,11 @@
 import * as vscode from 'vscode'
+import {Mutex} from 'async-mutex'
 
+let lock: Mutex;
 const documentVersionsAfterFiddle:Map<vscode.TextDocument,number>=new Map()
 
 export function activate(context: vscode.ExtensionContext) {
+	if (!lock) lock=new Mutex() // see for reasons: https://github.com/jemc/vscode-implicit-indent
 	vscode.workspace.onDidCloseTextDocument(document=>{
 		documentVersionsAfterFiddle.delete(document)
 	})
@@ -35,45 +38,55 @@ function cursorDown() {
 }
 
 async function cursorHorizontalMove(moveCommand:string,moveDelta:number) {
-	const editor=vscode.window.activeTextEditor!
-	const selectionBefore=editor.selection
-	await undoFiddleIfNecessary(editor)
-	const text=editor.document.lineAt(selectionBefore.active).text
-	if (
-		moveDelta>0 && selectionBefore.active.character<text.length ||
-		moveDelta<0 && selectionBefore.active.character<=text.length
-	) {
-		await vscode.commands.executeCommand(moveCommand)
-		return
-	}
-	const selectionAfter=editor.selection
-	const nSpacesRequired=selectionBefore.active.character+moveDelta-selectionAfter.active.character
-	if (nSpacesRequired>0) {
-		await editor.edit(editBuilder=>{
-			editBuilder.insert(selectionAfter.active,' '.repeat(nSpacesRequired))
-		})
-		rememberFiddle(editor)
+	const releaseLock=await lock.acquire()
+	try {
+		const editor=vscode.window.activeTextEditor!
+		const selectionBefore=editor.selection
+		await undoFiddleIfNecessary(editor)
+		const text=editor.document.lineAt(selectionBefore.active).text
+		if (
+			moveDelta>0 && selectionBefore.active.character<text.length ||
+			moveDelta<0 && selectionBefore.active.character<=text.length
+		) {
+			await vscode.commands.executeCommand(moveCommand)
+			return
+		}
+		const selectionAfter=editor.selection
+		const nSpacesRequired=selectionBefore.active.character+moveDelta-selectionAfter.active.character
+		if (nSpacesRequired>0) {
+			await editor.edit(editBuilder=>{
+				editBuilder.insert(selectionAfter.active,' '.repeat(nSpacesRequired))
+			})
+			rememberFiddle(editor)
+		}
+	} finally {
+		releaseLock()
 	}
 }
 
 async function cursorVerticalMove(moveCommand:string) {
-	const editor=vscode.window.activeTextEditor!
-	const selectionBefore=editor.selection
-	await vscode.commands.executeCommand(moveCommand)
-	const selectionAfter=editor.selection
-	const insertion=getVerticalMoveInsertion(
-		Number(editor.options.tabSize),
-		selectionBefore.active.character,
-		editor.document.lineAt(selectionBefore.active).text,
-		selectionAfter.active.character,
-		editor.document.lineAt(selectionAfter.active).text
-	)
-	await undoFiddleIfNecessary(editor)
-	if (insertion!=null) {
-		await editor.edit(editBuilder=>{
-			editBuilder.insert(selectionAfter.active,insertion)
-		})
-		rememberFiddle(editor)
+	const releaseLock=await lock.acquire()
+	try {
+		const editor=vscode.window.activeTextEditor!
+		const selectionBefore=editor.selection
+		await vscode.commands.executeCommand(moveCommand)
+		const selectionAfter=editor.selection
+		const insertion=getVerticalMoveInsertion(
+			Number(editor.options.tabSize),
+			selectionBefore.active.character,
+			editor.document.lineAt(selectionBefore.active).text,
+			selectionAfter.active.character,
+			editor.document.lineAt(selectionAfter.active).text
+		)
+		await undoFiddleIfNecessary(editor)
+		if (insertion!=null) {
+			await editor.edit(editBuilder=>{
+				editBuilder.insert(selectionAfter.active,insertion)
+			})
+			rememberFiddle(editor)
+		}
+	} finally {
+		releaseLock()
 	}
 }
 
