@@ -32,10 +32,10 @@ async function cursorVerticalMove(moveCommand:string) {
 	const selectionAfter=editor.selection
 	const insertion=getVerticalMoveInsertion(
 		Number(editor.options.tabSize),
-		selectionBefore.start.character,
-		document.lineAt(selectionBefore.start).text,
-		selectionAfter.start.character,
-		document.lineAt(selectionAfter.start).text
+		selectionBefore.active.character,
+		document.lineAt(selectionBefore.active).text,
+		selectionAfter.active.character,
+		document.lineAt(selectionAfter.active).text
 	)
 	const versionForUndo=documentVersionsAfterSpaceInsert.get(document)
 	documentVersionsAfterSpaceInsert.delete(document)
@@ -45,7 +45,7 @@ async function cursorVerticalMove(moveCommand:string) {
 	}
 	if (insertion!=null) {
 		await editor.edit(editBuilder=>{
-			editBuilder.insert(selectionAfter.start,insertion)
+			editBuilder.insert(selectionAfter.active,insertion)
 		})
 		documentVersionsAfterSpaceInsert.set(document,document.version)
 	}
