@@ -9,6 +9,11 @@ export function activate(context: vscode.ExtensionContext) {
 	vscode.workspace.onDidCloseTextDocument(document=>{
 		documentVersionsAfterFiddle.delete(document)
 	})
+	vscode.window.onDidChangeTextEditorSelection(async(event)=>{ // won't work correctly in all of the cases while fake spaces exist
+		if (!lock.isLocked()) {
+			await undoFiddleIfNecessary(event.textEditor)
+		}
+	})
 	context.subscriptions.push(
 		vscode.commands.registerCommand('fakeVirtualSpace.cursorUp'   ,()=>cursorVerticalMove('cursorUp')),
 		vscode.commands.registerCommand('fakeVirtualSpace.cursorDown' ,()=>cursorVerticalMove('cursorDown')),
