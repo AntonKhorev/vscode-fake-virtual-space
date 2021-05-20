@@ -21,11 +21,11 @@ export function deactivate() {
 	// TODO do undos if necessary
 }
 
-async function cursorLeft() {
+function cursorLeft() {
 	cursorHorizontalMove('cursorLeft',-1)
 }
 
-async function cursorRight() {
+function cursorRight() {
 	cursorHorizontalMove('cursorRight',+1)
 }
 
