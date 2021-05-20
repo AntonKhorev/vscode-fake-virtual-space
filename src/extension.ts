@@ -1,19 +1,39 @@
 import * as vscode from 'vscode'
 
-const documentVersionsAfterSpaceInsert:Map<vscode.TextDocument,number>=new Map()
+const documentVersionsAfterFiddle:Map<vscode.TextDocument,number>=new Map()
 
 export function activate(context: vscode.ExtensionContext) {
 	vscode.workspace.onDidCloseTextDocument(document=>{
-		documentVersionsAfterSpaceInsert.delete(document)
+		documentVersionsAfterFiddle.delete(document)
 	})
 	context.subscriptions.push(
 		vscode.commands.registerCommand('fakeVirtualSpace.cursorUp',cursorUp),
-		vscode.commands.registerCommand('fakeVirtualSpace.cursorDown',cursorDown)
+		vscode.commands.registerCommand('fakeVirtualSpace.cursorDown',cursorDown),
+		vscode.commands.registerCommand('fakeVirtualSpace.cursorRight',cursorRight)
 	)
 }
 
 export function deactivate() {
 	// TODO do undos if necessary
+}
+
+async function cursorRight() {
+	const editor=vscode.window.activeTextEditor!
+	const selectionBefore=editor.selection
+	const textBefore=editor.document.lineAt(selectionBefore.active).text
+	if (selectionBefore.active.character<textBefore.length) {
+		await vscode.commands.executeCommand('cursorRight')
+		return
+	}
+	await undoFiddleIfNecessary(editor)
+	const selectionAfter=editor.selection
+	const nSpacesRequired=selectionBefore.active.character+1-selectionAfter.active.character
+	if (nSpacesRequired>0) {
+		await editor.edit(editBuilder=>{
+			editBuilder.insert(selectionAfter.active,' '.repeat(nSpacesRequired))
+		})
+		rememberFiddle(editor)
+	}
 }
 
 function cursorUp() {
@@ -26,29 +46,38 @@ function cursorDown() {
 
 async function cursorVerticalMove(moveCommand:string) {
 	const editor=vscode.window.activeTextEditor!
-	const document=editor.document
 	const selectionBefore=editor.selection
 	await vscode.commands.executeCommand(moveCommand)
 	const selectionAfter=editor.selection
 	const insertion=getVerticalMoveInsertion(
 		Number(editor.options.tabSize),
 		selectionBefore.active.character,
-		document.lineAt(selectionBefore.active).text,
+		editor.document.lineAt(selectionBefore.active).text,
 		selectionAfter.active.character,
-		document.lineAt(selectionAfter.active).text
+		editor.document.lineAt(selectionAfter.active).text
 	)
-	const versionForUndo=documentVersionsAfterSpaceInsert.get(document)
-	documentVersionsAfterSpaceInsert.delete(document)
-	if (versionForUndo===document.version) {
-		await vscode.commands.executeCommand('undo')
+	await undoFiddleIfNecessary(editor,()=>{
 		editor.selection=selectionAfter
-	}
+	})
 	if (insertion!=null) {
 		await editor.edit(editBuilder=>{
 			editBuilder.insert(selectionAfter.active,insertion)
 		})
-		documentVersionsAfterSpaceInsert.set(document,document.version)
+		rememberFiddle(editor)
 	}
+}
+
+async function undoFiddleIfNecessary(editor:vscode.TextEditor,doAfterUndo=()=>{}) {
+	const versionForUndo=documentVersionsAfterFiddle.get(editor.document)
+	documentVersionsAfterFiddle.delete(editor.document)
+	if (versionForUndo===editor.document.version) {
+		await vscode.commands.executeCommand('undo')
+		doAfterUndo()
+	}
+}
+
+function rememberFiddle(editor:vscode.TextEditor) {
+	documentVersionsAfterFiddle.set(editor.document,editor.document.version)
 }
 
 export function getVerticalMoveInsertion(
