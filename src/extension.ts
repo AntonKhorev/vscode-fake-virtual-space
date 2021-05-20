@@ -26,20 +26,25 @@ async function cursorHorizontalMove(moveCommand:string,moveDelta:number) {
 	try {
 		const editor=vscode.window.activeTextEditor!
 		const selectionBefore=editor.selection
+		const textBefore=editor.document.lineAt(selectionBefore.active).text
 		await undoFiddleIfNecessary(editor)
-		const text=editor.document.lineAt(selectionBefore.active).text
+		const textAfter=editor.document.lineAt(selectionBefore.active).text
 		if (
-			moveDelta>0 && selectionBefore.active.character<text.length ||
-			moveDelta<0 && selectionBefore.active.character<=text.length
+			moveDelta>0 && selectionBefore.active.character<textAfter.length ||
+			moveDelta<0 && selectionBefore.active.character<=textAfter.length
 		) {
 			await vscode.commands.executeCommand(moveCommand)
 			return
 		}
 		const selectionAfter=editor.selection
-		const nSpacesRequired=selectionBefore.active.character+moveDelta-selectionAfter.active.character
-		if (nSpacesRequired>0) {
+		const insertion=getHorizontalMoveInsertion(
+			moveDelta,
+			selectionBefore.active.character,textBefore,
+			selectionAfter.active.character,textAfter
+		)
+		if (insertion!=null) {
 			await editor.edit(editBuilder=>{
-				editBuilder.insert(selectionAfter.active,' '.repeat(nSpacesRequired))
+				editBuilder.insert(selectionAfter.active,insertion)
 			})
 			rememberFiddle(editor)
 		}
@@ -141,4 +146,21 @@ export function getVerticalMoveInsertion(
 	}
 	if (indent=='') return null
 	return indent
+}
+
+export function getHorizontalMoveInsertion(
+	moveDelta: number,
+	character1: number,
+	text1: string,
+	character2: number,
+	text2: string
+):string|null {
+	const nCharactersRequired=character1+moveDelta-character2
+	if (nCharactersRequired<=0) return null
+	const removedText=text1.slice(text2.length)
+	if (removedText.length<nCharactersRequired) {
+		return removedText+' '.repeat(nCharactersRequired-removedText.length)
+	} else {
+		return removedText.slice(0,nCharactersRequired)
+	}
 }

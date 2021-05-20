@@ -61,4 +61,57 @@ suite("Extension Test Suite",()=>{
 			)
 		})
 	})
+	suite("getHorizontalMoveInsertion",()=>{
+		test("adds space to line without fake spaces",()=>{
+			const result=myExtension.getHorizontalMoveInsertion(+1,
+				4,"more",
+				4,"more"
+			)
+			assert.equal(result,
+				      " "
+			)
+		})
+		test("keeps/adds spaces to line with fake spaces",()=>{
+			const result=myExtension.getHorizontalMoveInsertion(+1,
+				6,"more  ",
+				4,"more"
+			)
+			assert.equal(result,
+				      "   "
+			)
+		})
+		test("keeps tab and adds space to line with fake tab",()=>{
+			const result=myExtension.getHorizontalMoveInsertion(+1,
+				5,"more\t",
+				4,"more"
+			)
+			assert.equal(result,
+				      "\t "
+			)
+		})
+	})
+	suite("Integration Tests",()=>{
+		test("keeps tabs produced by vertical movement when doing horizontal movement",async()=>{
+			const document=await vscode.workspace.openTextDocument({content:"\t\t\tx\n"})
+			const editor=await vscode.window.showTextDocument(document)
+			try {
+				assert.equal(document.getText(),
+					"\t\t\tx\n"
+				)
+				await vscode.commands.executeCommand("cursorEnd")
+				await vscode.commands.executeCommand("fakeVirtualSpace.cursorDown")
+				assert.equal(document.getText(),
+					"\t\t\tx\n"+
+					"\t\t\t "
+				)
+				await vscode.commands.executeCommand("fakeVirtualSpace.cursorRight")
+				assert.equal(document.getText(),
+					"\t\t\tx\n"+
+					"\t\t\t  "
+				)
+			} finally {
+				await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
+			}
+		})
+	})
 })
