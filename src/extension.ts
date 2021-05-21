@@ -44,6 +44,19 @@ async function cursorHorizontalMove(moveCommand:string,moveDelta:number) {
 		const editor=vscode.window.activeTextEditor!
 		const selectionBefore=editor.selection
 		const textBefore=editor.document.lineAt(selectionBefore.active).text
+		if (
+			moveDelta>0 && selectionBefore.active.character==textBefore.length
+		) {
+			const versionForAppend=documentVersionsAfterFiddle.get(editor.document)
+			// TODO make sure it's the same line
+			if (versionForAppend===editor.document.version) {
+				await editor.edit(editBuilder=>{
+					editBuilder.insert(selectionBefore.active,' ')
+				},{undoStopBefore:false,undoStopAfter:false})
+				rememberFiddle(editor)
+				return
+			}
+		}
 		await undoFiddleIfNecessary(editor)
 		const textAfter=editor.document.lineAt(selectionBefore.active).text
 		if (
@@ -62,7 +75,7 @@ async function cursorHorizontalMove(moveCommand:string,moveDelta:number) {
 		if (insertion!=null) {
 			await editor.edit(editBuilder=>{
 				editBuilder.insert(selectionAfter.active,insertion)
-			})
+			},{undoStopBefore:false,undoStopAfter:false})
 			rememberFiddle(editor)
 		}
 	} finally {
@@ -88,7 +101,7 @@ async function cursorVerticalMove(moveCommand:string) {
 		if (insertion!=null) {
 			await editor.edit(editBuilder=>{
 				editBuilder.insert(selectionAfter.active,insertion)
-			})
+			},{undoStopBefore:false,undoStopAfter:false})
 			rememberFiddle(editor)
 		}
 	} finally {
