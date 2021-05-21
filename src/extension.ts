@@ -13,7 +13,7 @@ export function activate(context: vscode.ExtensionContext) {
 	})
 	vscode.window.onDidChangeTextEditorSelection(async(event)=>{ // won't work correctly in all of the cases while fake spaces exist
 		if (!lock.isLocked()) {
-			await undoFiddleIfNecessary(event.textEditor)
+			await undoFiddleIfNecessary(event.textEditor) // TODO check if text has focus if possible
 		}
 	})
 	context.subscriptions.push(
