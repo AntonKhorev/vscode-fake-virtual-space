@@ -1,6 +1,8 @@
 import * as vscode from 'vscode'
 import {Mutex} from 'async-mutex'
 
+const performFullUndos=false // true = fully undo vspace insertion before altering it, maybe safer maybe unnecessary, more flickering
+
 let lock: Mutex;
 const documentVersionsAfterFiddle:Map<vscode.TextDocument,number>=new Map()
 
@@ -45,15 +47,15 @@ async function cursorHorizontalMove(moveCommand:string,moveDelta:number) {
 		const selectionBefore=editor.selection
 		const textBefore=editor.document.lineAt(selectionBefore.active).text
 		if (
+			!performFullUndos &&
 			moveDelta>0 && selectionBefore.active.character==textBefore.length
 		) {
 			const versionForAppend=documentVersionsAfterFiddle.get(editor.document)
 			// TODO make sure it's the same line
 			if (versionForAppend===editor.document.version) {
-				await editor.edit(editBuilder=>{
+				await doFiddle(editor,editBuilder=>{
 					editBuilder.insert(selectionBefore.active,' ')
-				},{undoStopBefore:false,undoStopAfter:false})
-				rememberFiddle(editor)
+				})
 				return
 			}
 		}
@@ -73,10 +75,9 @@ async function cursorHorizontalMove(moveCommand:string,moveDelta:number) {
 			selectionAfter.active.character,textAfter
 		)
 		if (insertion!=null) {
-			await editor.edit(editBuilder=>{
+			await doFiddle(editor,editBuilder=>{
 				editBuilder.insert(selectionAfter.active,insertion)
-			},{undoStopBefore:false,undoStopAfter:false})
-			rememberFiddle(editor)
+			})
 		}
 	} finally {
 		releaseLock()
@@ -99,10 +100,9 @@ async function cursorVerticalMove(moveCommand:string) {
 		)
 		await undoFiddleIfNecessary(editor)
 		if (insertion!=null) {
-			await editor.edit(editBuilder=>{
+			await doFiddle(editor,editBuilder=>{
 				editBuilder.insert(selectionAfter.active,insertion)
-			},{undoStopBefore:false,undoStopAfter:false})
-			rememberFiddle(editor)
+			})
 		}
 	} finally {
 		releaseLock()
@@ -121,7 +121,12 @@ async function undoFiddleIfNecessary(editor:vscode.TextEditor) {
 	}
 }
 
-function rememberFiddle(editor:vscode.TextEditor) {
+async function doFiddle(editor:vscode.TextEditor,edit:(editBuilder:vscode.TextEditorEdit)=>void) {
+	if (performFullUndos) {
+		await editor.edit(edit)
+	} else {
+		await editor.edit(edit,{undoStopBefore:false,undoStopAfter:false})
+	}
 	documentVersionsAfterFiddle.set(editor.document,editor.document.version)
 }
 
