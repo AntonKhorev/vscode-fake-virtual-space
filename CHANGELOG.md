@@ -4,7 +4,8 @@ All notable changes to the "vscode-fake-virtual-space" extension will be documen
 
 ## 0.0.2
 
-- Less flickering when moving the cursor right inside fake vspace
+- Less flickering when moving the cursor horizontally inside fake vspace
+- When clicked inside fake virtual space, trims it up to the click position instead of removing it completely
 
 ## 0.0.1
 

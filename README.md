@@ -21,3 +21,7 @@ To force this behavior, we have to pad lines with spaces if they aren't long eno
 
 - Drops the first character entered into the search box when inside fake vspace, then forgets to clean up fake vspace. This problem will exist for every input box displayed inside the editor if entering anything there may cause changes to the selection inside the editor. Could be fixable if there's a way of executing *undo* other than `vscode.commands.executeCommand('undo')` to direct it at the text (apparently, there's [no undo stack api](https://stackoverflow.com/questions/57900097/where-to-find-vscode-undo-stack-documentation)) or if it's possible to see whether the text has focus. Related to [editorTextFocus context](https://code.visualstudio.com/api/references/when-clause-contexts#available-contexts).
 - Redos are likely to get lost.
+- Multiple selections are likely to work incorrectly inside the fake virtual space.
+- Clicking on empty space outside the fake virtual space won't create more fake virtual space. Could be fixable if there's a mouse click event with readable click row/column.
+- Document is shown as unsaved when fake virtual space exists.
+- Fake virtual space is kept on save.

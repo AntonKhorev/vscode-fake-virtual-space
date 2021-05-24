@@ -15,10 +15,28 @@ export function activate(context: vscode.ExtensionContext) {
 	vscode.workspace.onDidCloseTextDocument(document=>{
 		documentVspaceState.delete(document)
 	})
-	vscode.window.onDidChangeTextEditorSelection(async(event)=>{ // won't work correctly in all of the cases while fake spaces exist
-		if (!lock.isLocked()) {
-			await cleanupVspace(event.textEditor) // TODO check if text has focus if possible
+	vscode.window.onDidChangeTextEditorSelection(async(event)=>{
+		// TODO check if text has focus if possible - but looks like it's impossible
+		if (lock.isLocked()) return
+		const editor=event.textEditor
+		const vspaceState=documentVspaceState.get(editor.document)
+		if (!vspaceState) return
+		if (vspaceState.version!=editor.document.version) {
+			documentVspaceState.delete(editor.document)
+			return
 		}
+		let maxVspaceCharacter:number|undefined
+		for (const selection of event.selections) {
+			// TODO complete multiple selection support
+			if (selection.active.line!=vspaceState.line || selection.active.character<=vspaceState.character) continue
+			if (maxVspaceCharacter==null || selection.active.character>maxVspaceCharacter) {
+				maxVspaceCharacter=selection.active.character
+			}
+		}
+		const text=editor.document.lineAt(vspaceState.line).text
+		const insertion=text.slice(vspaceState.character,maxVspaceCharacter)
+		await cleanupVspace(editor) // can't guarantee that stop position is not going to be inserted if editor.edit() is done - have to undo first
+		await doVspace(editor,insertion)
 	})
 	context.subscriptions.push(
 		vscode.commands.registerCommand('fakeVirtualSpace.cursorUp'   ,()=>cursorVerticalMove('cursorUp')),
