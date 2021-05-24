@@ -132,5 +132,26 @@ suite("Extension Test Suite",()=>{
 				await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
 			}
 		})
+		test("maintains redo stack",async()=>{
+			const document=await vscode.workspace.openTextDocument({content:"abc\n"})
+			const editor=await vscode.window.showTextDocument(document)
+			try {
+				await vscode.commands.executeCommand("cursorEnd")
+				assert.equal(document.getText(),"abc\n")
+				const position=editor.selection.active;
+				await editor.edit(editBuilder=>{
+					editBuilder.insert(position,'def')
+				})
+				assert.equal(document.getText(),"abcdef\n")
+				await vscode.commands.executeCommand("fakeVirtualSpace.undo")
+				assert.equal(document.getText(),"abc\n")
+				await vscode.commands.executeCommand("fakeVirtualSpace.cursorDown")
+				assert.equal(document.getText(),"abc\n   ")
+				await vscode.commands.executeCommand("fakeVirtualSpace.redo")
+				assert.equal(document.getText(),"abcdef\n")
+			} finally {
+				await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
+			}
+		})
 	})
 })

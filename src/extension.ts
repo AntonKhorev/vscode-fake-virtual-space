@@ -10,11 +10,15 @@ interface VspaceState {
 let lock: Mutex;
 const documentVspaceState:Map<vscode.TextDocument,VspaceState>=new Map()
 
+let undoLock: Mutex;
+
 export function activate(context: vscode.ExtensionContext) {
 	if (!lock) lock=new Mutex() // see for reasons: https://github.com/jemc/vscode-implicit-indent
+	if (!undoLock) undoLock=new Mutex()
 	vscode.workspace.onDidCloseTextDocument(document=>{
 		documentVspaceState.delete(document)
 	})
+	vscode.workspace.onDidChangeTextDocument(onDidChangeTextDocumentListener)
 	vscode.window.onDidChangeTextEditorSelection(async(event)=>{
 		// TODO check if text has focus if possible - but looks like it's impossible
 		if (lock.isLocked()) return
@@ -43,7 +47,9 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand('fakeVirtualSpace.cursorDown' ,()=>cursorVerticalMove('cursorDown')),
 		vscode.commands.registerCommand('fakeVirtualSpace.cursorLeft' ,()=>cursorHorizontalMove('cursorLeft',-1)),
 		vscode.commands.registerCommand('fakeVirtualSpace.cursorRight',()=>cursorHorizontalMove('cursorRight',+1)),
-		vscode.commands.registerCommand('fakeVirtualSpace.cursorEnd',cursorEnd)
+		vscode.commands.registerCommand('fakeVirtualSpace.cursorEnd',cursorEnd),
+		vscode.commands.registerCommand('fakeVirtualSpace.undo',undo),
+		vscode.commands.registerCommand('fakeVirtualSpace.redo',redo)
 	)
 }
 
@@ -178,6 +184,51 @@ async function doVspace(editor:vscode.TextEditor,insertion:string) {
 		line:position.line,
 		character:position.character
 	})
+}
+
+let undoDocument:vscode.TextDocument|undefined
+let undoDocumentText:string|undefined
+
+async function undo() {
+	const releaseLock=await undoLock.acquire()
+	try {
+		const editor=vscode.window.activeTextEditor!
+		undoDocument=editor.document
+		undoDocumentText=undoDocument.getText()
+		console.log('enter undo')
+		await vscode.commands.executeCommand('undo')
+		console.log('exit undo')
+	} finally {
+		undoDocumentText=undefined
+		undoDocument=undefined
+		releaseLock()
+	}
+}
+
+async function redo() {
+	const releaseLock=await undoLock.acquire()
+	try {
+		const editor=vscode.window.activeTextEditor!
+		undoDocument=editor.document
+		undoDocumentText=undoDocument.getText()
+		console.log('enter redo')
+		await vscode.commands.executeCommand('redo')
+		console.log('exit redo')
+	} finally {
+		undoDocumentText=undefined
+		undoDocument=undefined
+		releaseLock()
+	}
+}
+
+function onDidChangeTextDocumentListener(event:vscode.TextDocumentChangeEvent) {
+	if (!undoLock.isLocked()) return
+	const document=event.document
+	if (document!=event.document) return
+	for (const change of event.contentChanges) {
+		const oldText=undoDocumentText!.substr(change.rangeOffset,change.rangeLength)
+		console.log('changed(',oldText,')to(',change.text,')')
+	}
 }
 
 export function getVerticalMoveInsertion(
