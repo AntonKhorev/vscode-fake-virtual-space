@@ -7,7 +7,7 @@ let undoLock: Mutex;
 class DocumentState {
 	version:number
 	vspace:vscode.Position|undefined
-	redos:Array<[number,number,string]>
+	redos:Array<Array<[number,number,string]>>
 	constructor(version:number) {
 		this.version=version
 		this.redos=[]
@@ -105,10 +105,10 @@ async function cursorHorizontalMove(moveCommand:string,moveDelta:number) {
 					await editor.edit(editBuilder=>{
 						editBuilder.delete(new vscode.Range(new vscode.Position(position.line,position.character-1),position))
 					},{undoStopBefore:false,undoStopAfter:false})
-					state.version=editor.document.version
 				} else {
 					await undoVspace(editor)
 				}
+				state.version=editor.document.version
 			} else {
 				await vscode.commands.executeCommand(moveCommand)
 			}
@@ -147,6 +147,7 @@ async function cleanupVspace(editor:vscode.TextEditor) {
 	if (!state.vspace) return
 	state.vspace=undefined
 	await undoVspace(editor)
+	state.version=editor.document.version
 }
 
 async function undoVspaceIfNotInside(editor:vscode.TextEditor) {
@@ -156,6 +157,7 @@ async function undoVspaceIfNotInside(editor:vscode.TextEditor) {
 	if (position.line==state.vspace.line && position.character>=state.vspace.character) return
 	state.vspace=undefined
 	await undoVspace(editor)
+	state.version=editor.document.version
 }
 
 async function undoVspace(editor:vscode.TextEditor) {
@@ -169,10 +171,11 @@ async function undoVspace(editor:vscode.TextEditor) {
 
 async function doVspace(editor:vscode.TextEditor,insertion:string) {
 	const position=editor.selection.active
+	const state=getDocumentState(editor.document)
 	await editor.edit(editBuilder=>{
 		editBuilder.insert(position,insertion)
 	},{undoStopBefore:false,undoStopAfter:false})
-	const state=getDocumentState(editor.document)
+	state.version=editor.document.version
 	state.vspace=position
 }
 
@@ -180,34 +183,28 @@ let undoDocument:vscode.TextDocument|undefined
 let undoDocumentText:string|undefined
 
 async function undo() {
-	const releaseLock=await undoLock.acquire()
+	const releaseLock=await lock.acquire()
 	try {
 		const editor=vscode.window.activeTextEditor!
-		undoDocument=editor.document
-		undoDocumentText=undoDocument.getText()
-		console.log('enter undo')
-		await vscode.commands.executeCommand('undo')
-		console.log('exit undo')
+		const state=getDocumentState(editor.document)
+		if (state.vspace) {
+			await vscode.commands.executeCommand('undo')
+			state.vspace=undefined
+			state.version=editor.document.version
+		}
 	} finally {
-		undoDocumentText=undefined
-		undoDocument=undefined
 		releaseLock()
 	}
-}
-
-async function redo() {
-	const releaseLock=await undoLock.acquire()
+	const releaseUndoLock=await undoLock.acquire()
 	try {
 		const editor=vscode.window.activeTextEditor!
 		undoDocument=editor.document
 		undoDocumentText=undoDocument.getText()
-		console.log('enter redo')
-		await vscode.commands.executeCommand('redo')
-		console.log('exit redo')
+		await vscode.commands.executeCommand('undo')
 	} finally {
 		undoDocumentText=undefined
 		undoDocument=undefined
-		releaseLock()
+		releaseUndoLock()
 	}
 }
 
@@ -215,13 +212,45 @@ function onDidChangeTextDocumentListener(event:vscode.TextDocumentChangeEvent) {
 	if (!undoLock.isLocked()) return
 	const document=event.document
 	if (document!=event.document) return
+	const state=getDocumentState(document)
+	const redo:Array<[number,number,string]>=[]
 	for (const change of event.contentChanges) {
 		const oldText=undoDocumentText!.substr(change.rangeOffset,change.rangeLength)
-		console.log('changed(',oldText,')to(',change.text,')')
-		console.log('start:',document.positionAt(change.rangeOffset))
-		console.log('end1:',document.positionAt(change.rangeOffset+change.rangeLength))
-		console.log('end2:',document.positionAt(change.rangeOffset+change.text.length))
+		redo.push([change.rangeOffset,change.text.length,oldText])
 	}
+	state.redos.push(redo)
+}
+
+async function redo() {
+	const releaseLock=await lock.acquire()
+	try {
+		const editor=vscode.window.activeTextEditor!
+		const state=getDocumentState(editor.document)
+		if (state.redos.length>0) {
+			if (state.vspace) {
+				await vscode.commands.executeCommand('undo')
+				state.vspace=undefined
+			}
+			await doRecordedRedo(editor,state.redos.shift()!)
+			state.version=editor.document.version
+		} else {
+			await vscode.commands.executeCommand('redo')
+		}
+	} finally {
+		releaseLock()
+	}
+}
+
+async function doRecordedRedo(editor:vscode.TextEditor,redo:Array<[number,number,string]>) {
+	await editor.edit(editBuilder=>{
+		const document=editor.document
+		for (const [offset,length,replacement] of redo) {
+			editBuilder.replace(new vscode.Range(
+				document.positionAt(offset),
+				document.positionAt(offset+length)
+			),replacement)
+		}
+	})
 }
 
 export function getVerticalMoveInsertion(
