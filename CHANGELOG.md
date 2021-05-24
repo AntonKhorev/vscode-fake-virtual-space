@@ -2,6 +2,10 @@
 
 All notable changes to the "vscode-fake-virtual-space" extension will be documented in this file.
 
+## 0.0.3
+
+- Some support for redos
+
 ## 0.0.2
 
 - Less flickering when moving the cursor horizontally inside fake vspace
