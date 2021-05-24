@@ -1,19 +1,23 @@
 import * as vscode from 'vscode'
 import {Mutex} from 'async-mutex'
 
-const performFullUndos=false // true = fully undo vspace insertion before altering it, maybe safer maybe unnecessary, more flickering
+interface VspaceState {
+	version: number
+	line: number
+	character: number
+}
 
 let lock: Mutex;
-const documentVersionsAfterFiddle:Map<vscode.TextDocument,number>=new Map()
+const documentVspaceState:Map<vscode.TextDocument,VspaceState>=new Map()
 
 export function activate(context: vscode.ExtensionContext) {
 	if (!lock) lock=new Mutex() // see for reasons: https://github.com/jemc/vscode-implicit-indent
 	vscode.workspace.onDidCloseTextDocument(document=>{
-		documentVersionsAfterFiddle.delete(document)
+		documentVspaceState.delete(document)
 	})
 	vscode.window.onDidChangeTextEditorSelection(async(event)=>{ // won't work correctly in all of the cases while fake spaces exist
 		if (!lock.isLocked()) {
-			await undoFiddleIfNecessary(event.textEditor) // TODO check if text has focus if possible
+			await cleanupVspace(event.textEditor) // TODO check if text has focus if possible
 		}
 	})
 	context.subscriptions.push(
@@ -33,7 +37,7 @@ async function cursorEnd() {
 	const releaseLock=await lock.acquire()
 	try {
 		const editor=vscode.window.activeTextEditor!
-		await undoFiddleIfNecessary(editor)
+		await cleanupVspace(editor)
 		await vscode.commands.executeCommand('cursorEnd')
 	} finally {
 		releaseLock()
@@ -44,40 +48,48 @@ async function cursorHorizontalMove(moveCommand:string,moveDelta:number) {
 	const releaseLock=await lock.acquire()
 	try {
 		const editor=vscode.window.activeTextEditor!
-		const selectionBefore=editor.selection
-		const textBefore=editor.document.lineAt(selectionBefore.active).text
-		if (
-			!performFullUndos &&
-			moveDelta>0 && selectionBefore.active.character==textBefore.length
-		) {
-			const versionForAppend=documentVersionsAfterFiddle.get(editor.document)
-			// TODO make sure it's the same line
-			if (versionForAppend===editor.document.version) {
-				await doFiddle(editor,editBuilder=>{
-					editBuilder.insert(selectionBefore.active,' ')
-				})
-				return
-			}
-		}
-		await undoFiddleIfNecessary(editor)
-		const textAfter=editor.document.lineAt(selectionBefore.active).text
-		if (
-			moveDelta>0 && selectionBefore.active.character<textAfter.length ||
-			moveDelta<0 && selectionBefore.active.character<=textAfter.length
-		) {
+		await undoVspaceIfNotInside(editor)
+		const position=editor.selection.active;
+		const text=editor.document.lineAt(position).text
+		if (moveDelta>0 && position.character<text.length) {
 			await vscode.commands.executeCommand(moveCommand)
 			return
 		}
-		const selectionAfter=editor.selection
-		const insertion=getHorizontalMoveInsertion(
-			moveDelta,
-			selectionBefore.active.character,textBefore,
-			selectionAfter.active.character,textAfter
-		)
-		if (insertion!=null) {
-			await doFiddle(editor,editBuilder=>{
-				editBuilder.insert(selectionAfter.active,insertion)
-			})
+		if (moveDelta>0 && position.character>=text.length) {
+			await editor.edit(editBuilder=>{
+				editBuilder.insert(position,' ')
+			},{undoStopBefore:false,undoStopAfter:false})
+			const vspaceState=documentVspaceState.get(editor.document)
+			if (vspaceState) {
+				vspaceState.version=editor.document.version
+			} else {
+				documentVspaceState.set(editor.document,{
+					version:editor.document.version,
+					line:position.line,
+					character:position.character
+				})
+			}
+			return
+		}
+		if (moveDelta<0 && position.character<text.length) {
+			await vscode.commands.executeCommand(moveCommand)
+			return
+		}
+		if (moveDelta<0 && position.character>=text.length) {
+			const vspaceState=documentVspaceState.get(editor.document)
+			if (vspaceState) {
+				if (position.character>vspaceState.character+1) {
+					await editor.edit(editBuilder=>{
+						editBuilder.delete(new vscode.Range(new vscode.Position(position.line,position.character-1),position))
+					},{undoStopBefore:false,undoStopAfter:false})
+					vspaceState.version=editor.document.version
+				} else {
+					await undoVspace(editor)
+				}
+			} else {
+				await vscode.commands.executeCommand(moveCommand)
+			}
+			return
 		}
 	} finally {
 		releaseLock()
@@ -98,36 +110,56 @@ async function cursorVerticalMove(moveCommand:string) {
 			selectionAfter.active.character,
 			editor.document.lineAt(selectionAfter.active).text
 		)
-		await undoFiddleIfNecessary(editor)
+		await cleanupVspace(editor)
 		if (insertion!=null) {
-			await doFiddle(editor,editBuilder=>{
-				editBuilder.insert(selectionAfter.active,insertion)
-			})
+			await doVspace(editor,insertion)
 		}
 	} finally {
 		releaseLock()
 	}
 }
 
-async function undoFiddleIfNecessary(editor:vscode.TextEditor) {
-	const versionForUndo=documentVersionsAfterFiddle.get(editor.document)
-	documentVersionsAfterFiddle.delete(editor.document)
-	if (versionForUndo===editor.document.version) {
-		const savedLine=editor.selection.active.line
-		const savedCharacter=editor.selection.active.character
-		await vscode.commands.executeCommand('undo')
-		const restoredPosition=new vscode.Position(savedLine,Math.min(savedCharacter,editor.document.lineAt(savedLine).text.length))
-		editor.selection=new vscode.Selection(restoredPosition,restoredPosition)
+async function cleanupVspace(editor:vscode.TextEditor) {
+	const vspaceState=documentVspaceState.get(editor.document)
+	documentVspaceState.delete(editor.document)
+	if (vspaceState && vspaceState.version==editor.document.version) {
+		await undoVspace(editor)
 	}
 }
 
-async function doFiddle(editor:vscode.TextEditor,edit:(editBuilder:vscode.TextEditorEdit)=>void) {
-	if (performFullUndos) {
-		await editor.edit(edit)
-	} else {
-		await editor.edit(edit,{undoStopBefore:false,undoStopAfter:false})
+async function undoVspaceIfNotInside(editor:vscode.TextEditor) {
+	const vspaceState=documentVspaceState.get(editor.document)
+	if (!vspaceState) return
+	if (vspaceState.version!=editor.document.version) {
+		documentVspaceState.delete(editor.document)
+		return
 	}
-	documentVersionsAfterFiddle.set(editor.document,editor.document.version)
+	const position=editor.selection.active
+	if (position.line!=vspaceState.line || position.character<vspaceState.character) {
+		documentVspaceState.delete(editor.document)
+		await undoVspace(editor)
+	}
+}
+
+async function undoVspace(editor:vscode.TextEditor) {
+	// TODO restore selection fully if it's not inside vspace
+	const savedLine=editor.selection.active.line
+	const savedCharacter=editor.selection.active.character
+	await vscode.commands.executeCommand('undo')
+	const restoredPosition=new vscode.Position(savedLine,Math.min(savedCharacter,editor.document.lineAt(savedLine).text.length))
+	editor.selection=new vscode.Selection(restoredPosition,restoredPosition)
+}
+
+async function doVspace(editor:vscode.TextEditor,insertion:string) {
+	const position=editor.selection.active
+	await editor.edit(editBuilder=>{
+		editBuilder.insert(position,insertion)
+	},{undoStopBefore:false,undoStopAfter:false})
+	documentVspaceState.set(editor.document,{
+		version:editor.document.version,
+		line:position.line,
+		character:position.character
+	})
 }
 
 export function getVerticalMoveInsertion(
@@ -181,21 +213,4 @@ export function getVerticalMoveInsertion(
 	}
 	if (indent=='') return null
 	return indent
-}
-
-export function getHorizontalMoveInsertion(
-	moveDelta: number,
-	character1: number,
-	text1: string,
-	character2: number,
-	text2: string
-):string|null {
-	const nCharactersRequired=character1+moveDelta-character2
-	if (nCharactersRequired<=0) return null
-	const removedText=text1.slice(text2.length)
-	if (removedText.length<nCharactersRequired) {
-		return removedText+' '.repeat(nCharactersRequired-removedText.length)
-	} else {
-		return removedText.slice(0,nCharactersRequired)
-	}
 }

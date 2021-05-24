@@ -61,36 +61,55 @@ suite("Extension Test Suite",()=>{
 			)
 		})
 	})
-	suite("getHorizontalMoveInsertion",()=>{
-		test("adds space to line without fake spaces",()=>{
-			const result=myExtension.getHorizontalMoveInsertion(+1,
-				4,"more",
-				4,"more"
-			)
-			assert.equal(result,
-				      " "
-			)
-		})
-		test("keeps/adds spaces to line with fake spaces",()=>{
-			const result=myExtension.getHorizontalMoveInsertion(+1,
-				6,"more  ",
-				4,"more"
-			)
-			assert.equal(result,
-				      "   "
-			)
-		})
-		test("keeps tab and adds space to line with fake tab",()=>{
-			const result=myExtension.getHorizontalMoveInsertion(+1,
-				5,"more\t",
-				4,"more"
-			)
-			assert.equal(result,
-				      "\t "
-			)
-		})
-	})
 	suite("Integration Tests",()=>{
+		test("does horizontal movement vspace expansion",async()=>{
+			const document=await vscode.workspace.openTextDocument({content:"begin("})
+			const editor=await vscode.window.showTextDocument(document)
+			try {
+				await vscode.commands.executeCommand("cursorEnd")
+				assert.equal(document.getText(),"begin(")
+				await vscode.commands.executeCommand("fakeVirtualSpace.cursorRight")
+				assert.equal(document.getText(),"begin( ")
+				await vscode.commands.executeCommand("fakeVirtualSpace.cursorRight")
+				assert.equal(document.getText(),"begin(  ")
+			} finally {
+				await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
+			}
+		})
+		test("does horizontal movement vspace shrinking after expansion",async()=>{
+			const document=await vscode.workspace.openTextDocument({content:"begin("})
+			const editor=await vscode.window.showTextDocument(document)
+			try {
+				await vscode.commands.executeCommand("cursorEnd")
+				await vscode.commands.executeCommand("fakeVirtualSpace.cursorRight")
+				await vscode.commands.executeCommand("fakeVirtualSpace.cursorRight")
+				assert.equal(document.getText(),"begin(  ")
+				await vscode.commands.executeCommand("fakeVirtualSpace.cursorLeft")
+				assert.equal(document.getText(),"begin( ")
+				await vscode.commands.executeCommand("fakeVirtualSpace.cursorLeft")
+				assert.equal(document.getText(),"begin(")
+				await vscode.commands.executeCommand("fakeVirtualSpace.cursorLeft")
+				assert.equal(document.getText(),"begin(")
+			} finally {
+				await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
+			}
+		})
+		test("cleans up horizontal movement vspace by vertical movement",async()=>{
+			const document=await vscode.workspace.openTextDocument({content:"1(\n2("})
+			const editor=await vscode.window.showTextDocument(document)
+			try {
+				await vscode.commands.executeCommand("cursorEnd")
+				assert.equal(document.getText(),"1(\n2(")
+				await vscode.commands.executeCommand("fakeVirtualSpace.cursorRight")
+				assert.equal(document.getText(),"1( \n2(")
+				await vscode.commands.executeCommand("fakeVirtualSpace.cursorRight")
+				assert.equal(document.getText(),"1(  \n2(")
+				await vscode.commands.executeCommand("fakeVirtualSpace.cursorDown")
+				assert.equal(document.getText(),"1(\n2(  ")
+			} finally {
+				await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
+			}
+		})
 		test("keeps tabs produced by vertical movement when doing horizontal movement",async()=>{
 			const document=await vscode.workspace.openTextDocument({content:"\t\t\tx\n"})
 			const editor=await vscode.window.showTextDocument(document)
