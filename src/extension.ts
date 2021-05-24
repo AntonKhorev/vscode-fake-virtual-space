@@ -1,44 +1,50 @@
 import * as vscode from 'vscode'
 import {Mutex} from 'async-mutex'
 
-interface VspaceState {
-	version: number
-	line: number
-	character: number
-}
-
 let lock: Mutex;
-const documentVspaceState:Map<vscode.TextDocument,VspaceState>=new Map()
-
 let undoLock: Mutex;
+
+class DocumentState {
+	version:number
+	vspace:vscode.Position|undefined
+	redos:Array<[number,number,string]>
+	constructor(version:number) {
+		this.version=version
+		this.redos=[]
+	}
+}
+const documentStates:Map<vscode.TextDocument,DocumentState>=new Map()
+const getDocumentState=(document:vscode.TextDocument):DocumentState=>{
+	const existingState=documentStates.get(document)
+	if (existingState && existingState.version==document.version) return existingState
+	const newState=new DocumentState(document.version)
+	documentStates.set(document,newState)
+	return newState
+}
 
 export function activate(context: vscode.ExtensionContext) {
 	if (!lock) lock=new Mutex() // see for reasons: https://github.com/jemc/vscode-implicit-indent
 	if (!undoLock) undoLock=new Mutex()
 	vscode.workspace.onDidCloseTextDocument(document=>{
-		documentVspaceState.delete(document)
+		documentStates.delete(document)
 	})
 	vscode.workspace.onDidChangeTextDocument(onDidChangeTextDocumentListener)
 	vscode.window.onDidChangeTextEditorSelection(async(event)=>{
 		// TODO check if text has focus if possible - but looks like it's impossible
 		if (lock.isLocked()) return
 		const editor=event.textEditor
-		const vspaceState=documentVspaceState.get(editor.document)
-		if (!vspaceState) return
-		if (vspaceState.version!=editor.document.version) {
-			documentVspaceState.delete(editor.document)
-			return
-		}
+		const state=getDocumentState(editor.document)
+		if (!state.vspace) return
 		let maxVspaceCharacter:number|undefined
 		for (const selection of event.selections) {
 			// TODO complete multiple selection support
-			if (selection.active.line!=vspaceState.line || selection.active.character<=vspaceState.character) continue
+			if (selection.active.line!=state.vspace.line || selection.active.character<=state.vspace.character) continue
 			if (maxVspaceCharacter==null || selection.active.character>maxVspaceCharacter) {
 				maxVspaceCharacter=selection.active.character
 			}
 		}
-		const text=editor.document.lineAt(vspaceState.line).text
-		const insertion=text.slice(vspaceState.character,maxVspaceCharacter)
+		const text=editor.document.lineAt(state.vspace.line).text
+		const insertion=text.slice(state.vspace.character,maxVspaceCharacter)
 		await cleanupVspace(editor) // can't guarantee that stop position is not going to be inserted if editor.edit() is done - have to undo first
 		await doVspace(editor,insertion)
 	})
@@ -80,19 +86,12 @@ async function cursorHorizontalMove(moveCommand:string,moveDelta:number) {
 			return
 		}
 		if (moveDelta>0 && position.character>=text.length) {
+			const state=getDocumentState(editor.document)
 			await editor.edit(editBuilder=>{
 				editBuilder.insert(position,' ')
 			},{undoStopBefore:false,undoStopAfter:false})
-			const vspaceState=documentVspaceState.get(editor.document)
-			if (vspaceState) {
-				vspaceState.version=editor.document.version
-			} else {
-				documentVspaceState.set(editor.document,{
-					version:editor.document.version,
-					line:position.line,
-					character:position.character
-				})
-			}
+			state.version=editor.document.version
+			if (!state.vspace) state.vspace=position
 			return
 		}
 		if (moveDelta<0 && position.character<text.length) {
@@ -100,13 +99,13 @@ async function cursorHorizontalMove(moveCommand:string,moveDelta:number) {
 			return
 		}
 		if (moveDelta<0 && position.character>=text.length) {
-			const vspaceState=documentVspaceState.get(editor.document)
-			if (vspaceState) {
-				if (position.character>vspaceState.character+1) {
+			const state=getDocumentState(editor.document)
+			if (state.vspace) {
+				if (position.character>state.vspace.character+1) {
 					await editor.edit(editBuilder=>{
 						editBuilder.delete(new vscode.Range(new vscode.Position(position.line,position.character-1),position))
 					},{undoStopBefore:false,undoStopAfter:false})
-					vspaceState.version=editor.document.version
+					state.version=editor.document.version
 				} else {
 					await undoVspace(editor)
 				}
@@ -144,25 +143,19 @@ async function cursorVerticalMove(moveCommand:string) {
 }
 
 async function cleanupVspace(editor:vscode.TextEditor) {
-	const vspaceState=documentVspaceState.get(editor.document)
-	documentVspaceState.delete(editor.document)
-	if (vspaceState && vspaceState.version==editor.document.version) {
-		await undoVspace(editor)
-	}
+	const state=getDocumentState(editor.document)
+	if (!state.vspace) return
+	state.vspace=undefined
+	await undoVspace(editor)
 }
 
 async function undoVspaceIfNotInside(editor:vscode.TextEditor) {
-	const vspaceState=documentVspaceState.get(editor.document)
-	if (!vspaceState) return
-	if (vspaceState.version!=editor.document.version) {
-		documentVspaceState.delete(editor.document)
-		return
-	}
+	const state=getDocumentState(editor.document)
+	if (!state.vspace) return
 	const position=editor.selection.active
-	if (position.line!=vspaceState.line || position.character<vspaceState.character) {
-		documentVspaceState.delete(editor.document)
-		await undoVspace(editor)
-	}
+	if (position.line==state.vspace.line && position.character>=state.vspace.character) return
+	state.vspace=undefined
+	await undoVspace(editor)
 }
 
 async function undoVspace(editor:vscode.TextEditor) {
@@ -179,11 +172,8 @@ async function doVspace(editor:vscode.TextEditor,insertion:string) {
 	await editor.edit(editBuilder=>{
 		editBuilder.insert(position,insertion)
 	},{undoStopBefore:false,undoStopAfter:false})
-	documentVspaceState.set(editor.document,{
-		version:editor.document.version,
-		line:position.line,
-		character:position.character
-	})
+	const state=getDocumentState(editor.document)
+	state.vspace=position
 }
 
 let undoDocument:vscode.TextDocument|undefined
@@ -228,6 +218,9 @@ function onDidChangeTextDocumentListener(event:vscode.TextDocumentChangeEvent) {
 	for (const change of event.contentChanges) {
 		const oldText=undoDocumentText!.substr(change.rangeOffset,change.rangeLength)
 		console.log('changed(',oldText,')to(',change.text,')')
+		console.log('start:',document.positionAt(change.rangeOffset))
+		console.log('end1:',document.positionAt(change.rangeOffset+change.rangeLength))
+		console.log('end2:',document.positionAt(change.rangeOffset+change.text.length))
 	}
 }
 
