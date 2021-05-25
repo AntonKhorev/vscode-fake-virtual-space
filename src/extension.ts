@@ -32,10 +32,17 @@ const getDocumentState=(document:vscode.TextDocument):DocumentState=>{
 export function activate(context: vscode.ExtensionContext) {
 	if (!lock) lock=new Mutex() // see for reasons: https://github.com/jemc/vscode-implicit-indent
 	if (!undoLock) undoLock=new Mutex()
+	vscode.workspace.onDidChangeTextDocument(onDidChangeTextDocumentListener)
+	vscode.workspace.onWillSaveTextDocument(event=>{
+		const state=getDocumentState(event.document)
+		if (!state.vspace) return
+		const lineRange=event.document.lineAt(state.vspace).range
+		const edit=vscode.TextEdit.delete(new vscode.Range(state.vspace,lineRange.end))
+		event.waitUntil((async()=>[edit])())
+	})
 	vscode.workspace.onDidCloseTextDocument(document=>{
 		documentStates.delete(document)
 	})
-	vscode.workspace.onDidChangeTextDocument(onDidChangeTextDocumentListener)
 	vscode.window.onDidChangeTextEditorSelection(async(event)=>{
 		// TODO check if text has focus if possible - but looks like it's impossible
 		if (lock.isLocked()) return

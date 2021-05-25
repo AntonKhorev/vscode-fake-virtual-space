@@ -1,4 +1,5 @@
 import {strict as assert} from 'assert'
+import * as fs from 'fs'
 
 // You can import and use all API from the 'vscode' module
 // as well as import your extension to test it
@@ -202,7 +203,7 @@ suite("Extension Test Suite",()=>{
 			try {
 				await vscode.commands.executeCommand("cursorEnd")
 				assert.equal(document.getText(),"abc\n")
-				const position=editor.selection.active;
+				const position=editor.selection.active
 				await editor.edit(editBuilder=>{
 					editBuilder.insert(position,'def')
 				})
@@ -215,6 +216,32 @@ suite("Extension Test Suite",()=>{
 				assert.equal(document.getText(),"abcdef\n")
 			} finally {
 				await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
+			}
+		})
+		test("cleans up vspace on save",async()=>{
+			const filename=`${__dirname}/vspace-save-test.txt`
+			fs.writeFileSync(filename,"")
+			try {
+				const document=await vscode.workspace.openTextDocument(filename)
+				const editor=await vscode.window.showTextDocument(document)
+				try {
+					assert.equal(document.getText(),"")
+					const position=editor.selection.active
+					await editor.edit(editBuilder=>{
+						editBuilder.insert(position,'123')
+					})
+					await vscode.commands.executeCommand("cursorEnd")
+					assert.equal(document.getText(),"123")
+					await vscode.commands.executeCommand("fakeVirtualSpace.cursorRight")
+					assert.equal(document.getText(),"123 ")
+					await document.save()
+					const text=String(fs.readFileSync(filename))
+					assert.equal(text,"123")
+				} finally {
+					await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
+				}
+			} finally {
+				fs.unlinkSync(filename)
 			}
 		})
 	})

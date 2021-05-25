@@ -23,4 +23,4 @@ To force this behavior, we have to pad lines with spaces if they aren't long eno
 - Multiple selections are likely to work incorrectly inside the fake virtual space.
 - Clicking on empty space outside the fake virtual space won't create more fake virtual space. Could be fixable if there's a mouse click event with readable click row/column.
 - Document is shown as unsaved when fake virtual space exists.
-- Fake virtual space is kept on save.
+- Fake virtual space state may get lost when saving untitled documents. Could be fixable if could store document metadata that persisted through saves with *untitled:* to *file:* uri changes.

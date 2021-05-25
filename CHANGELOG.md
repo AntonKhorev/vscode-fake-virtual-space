@@ -2,6 +2,10 @@
 
 All notable changes to the "vscode-fake-virtual-space" extension will be documented in this file.
 
+## 0.0.5
+
+- Clean up fake virtual space on save
+
 ## 0.0.4
 
 - Bug fixes related to undo/redo
