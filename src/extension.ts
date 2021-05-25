@@ -16,7 +16,7 @@ class DocumentState {
 	}
 	async edit(editor:vscode.TextEditor,buildEdit:(editBuilder:vscode.TextEditorEdit)=>void) {
 		this.perturbedRedoStack=true
-		await editor.edit(buildEdit,{undoStopBefore:false,undoStopAfter:false})
+		await editor.edit(buildEdit,{undoStopBefore:this.vspace==undefined,undoStopAfter:false})
 		this.version=editor.document.version
 	}
 }

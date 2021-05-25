@@ -132,6 +132,25 @@ suite("Extension Test Suite",()=>{
 				await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
 			}
 		})
+		test("keeps typed text when cleaning up virtual space",async()=>{
+			const document=await vscode.workspace.openTextDocument({content:"begin(\n"})
+			const editor=await vscode.window.showTextDocument(document)
+			try {
+				await vscode.commands.executeCommand("cursorEnd")
+				assert.equal(document.getText(),"begin(\n")
+				await vscode.commands.executeCommand("type",{"text":"1"})
+				assert.equal(document.getText(),"begin(1\n")
+				await vscode.commands.executeCommand("fakeVirtualSpace.cursorRight")
+				assert.equal(document.getText(),"begin(1 \n")
+				await vscode.commands.executeCommand("fakeVirtualSpace.cursorDown")
+				assert.equal(document.getText(),
+					"begin(1\n"+
+					"        "
+				)
+			} finally {
+				await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
+			}
+		})
 		test("does undo past vspace addition",async()=>{
 			const document=await vscode.workspace.openTextDocument({content:"abc\n"})
 			const editor=await vscode.window.showTextDocument(document)
