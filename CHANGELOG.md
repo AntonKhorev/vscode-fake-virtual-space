@@ -2,6 +2,10 @@
 
 All notable changes to the "vscode-fake-virtual-space" extension will be documented in this file.
 
+## 0.0.4
+
+- Bug fixes related to undo/redo
+
 ## 0.0.3
 
 - Some support for redos
