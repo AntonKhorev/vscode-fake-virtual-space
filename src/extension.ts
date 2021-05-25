@@ -8,9 +8,16 @@ class DocumentState {
 	version:number
 	vspace:vscode.Position|undefined
 	redos:Array<Array<[number,number,string]>>
+	perturbedRedoStack:boolean
 	constructor(version:number) {
 		this.version=version
 		this.redos=[]
+		this.perturbedRedoStack=false
+	}
+	async edit(editor:vscode.TextEditor,buildEdit:(editBuilder:vscode.TextEditorEdit)=>void) {
+		this.perturbedRedoStack=true
+		await editor.edit(buildEdit,{undoStopBefore:false,undoStopAfter:false})
+		this.version=editor.document.version
 	}
 }
 const documentStates:Map<vscode.TextDocument,DocumentState>=new Map()
@@ -87,10 +94,9 @@ async function cursorHorizontalMove(moveCommand:string,moveDelta:number) {
 		}
 		if (moveDelta>0 && position.character>=text.length) {
 			const state=getDocumentState(editor.document)
-			await editor.edit(editBuilder=>{
+			await state.edit(editor,editBuilder=>{
 				editBuilder.insert(position,' ')
-			},{undoStopBefore:false,undoStopAfter:false})
-			state.version=editor.document.version
+			})
 			if (!state.vspace) state.vspace=position
 			return
 		}
@@ -102,13 +108,13 @@ async function cursorHorizontalMove(moveCommand:string,moveDelta:number) {
 			const state=getDocumentState(editor.document)
 			if (state.vspace) {
 				if (position.character>state.vspace.character+1) {
-					await editor.edit(editBuilder=>{
+					await state.edit(editor,editBuilder=>{
 						editBuilder.delete(new vscode.Range(new vscode.Position(position.line,position.character-1),position))
-					},{undoStopBefore:false,undoStopAfter:false})
+					})
 				} else {
 					await undoVspace(editor)
+					state.version=editor.document.version
 				}
-				state.version=editor.document.version
 			} else {
 				await vscode.commands.executeCommand(moveCommand)
 			}
@@ -172,10 +178,9 @@ async function undoVspace(editor:vscode.TextEditor) {
 async function doVspace(editor:vscode.TextEditor,insertion:string) {
 	const position=editor.selection.active
 	const state=getDocumentState(editor.document)
-	await editor.edit(editBuilder=>{
+	await state.edit(editor,editBuilder=>{
 		editBuilder.insert(position,insertion)
-	},{undoStopBefore:false,undoStopAfter:false})
-	state.version=editor.document.version
+	})
 	state.vspace=position
 }
 
@@ -226,16 +231,17 @@ async function redo() {
 	try {
 		const editor=vscode.window.activeTextEditor!
 		const state=getDocumentState(editor.document)
-		if (state.redos.length>0) {
+		if (state.perturbedRedoStack && state.redos.length>0) {
 			if (state.vspace) {
 				await vscode.commands.executeCommand('undo')
 				state.vspace=undefined
 			}
-			await doRecordedRedo(editor,state.redos.shift()!)
-			state.version=editor.document.version
+			await doRecordedRedo(editor,state.redos.pop()!)
 		} else {
+			state.redos.pop()
 			await vscode.commands.executeCommand('redo')
 		}
+		state.version=editor.document.version
 	} finally {
 		releaseLock()
 	}

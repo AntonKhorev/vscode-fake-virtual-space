@@ -151,7 +151,33 @@ suite("Extension Test Suite",()=>{
 				await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
 			}
 		})
-		test("maintains redo stack",async()=>{
+		test("does multiple undos followed by multiple redos",async()=>{
+			const document=await vscode.workspace.openTextDocument({content:""})
+			const editor=await vscode.window.showTextDocument(document)
+			try {
+				await vscode.commands.executeCommand("fakeVirtualSpace.cursorEnd") // activate
+				assert.equal(document.getText(),"")
+				await editor.edit(editBuilder=>{
+					editBuilder.insert(new vscode.Position(0,0),'abc')
+				})
+				assert.equal(document.getText(),"abc")
+				await editor.edit(editBuilder=>{
+					editBuilder.insert(new vscode.Position(0,3),'def')
+				})
+				assert.equal(document.getText(),"abcdef")
+				await vscode.commands.executeCommand("fakeVirtualSpace.undo")
+				assert.equal(document.getText(),"abc")
+				await vscode.commands.executeCommand("fakeVirtualSpace.undo")
+				assert.equal(document.getText(),"")
+				await vscode.commands.executeCommand("fakeVirtualSpace.redo")
+				assert.equal(document.getText(),"abc")
+				await vscode.commands.executeCommand("fakeVirtualSpace.redo")
+				assert.equal(document.getText(),"abcdef")
+			} finally {
+				await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
+			}
+		})
+		test("maintains redo stack with virtual space edits",async()=>{
 			const document=await vscode.workspace.openTextDocument({content:"abc\n"})
 			const editor=await vscode.window.showTextDocument(document)
 			try {
