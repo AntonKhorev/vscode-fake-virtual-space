@@ -197,7 +197,7 @@ suite("Extension Test Suite",()=>{
 				await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
 			}
 		})
-		test("maintains redo stack with virtual space edits",async()=>{
+		test("maintains single-operation redo stack with virtual space edits",async()=>{
 			const document=await vscode.workspace.openTextDocument({content:"abc\n"})
 			const editor=await vscode.window.showTextDocument(document)
 			try {
@@ -214,6 +214,35 @@ suite("Extension Test Suite",()=>{
 				assert.equal(document.getText(),"abc\n   ")
 				await vscode.commands.executeCommand("fakeVirtualSpace.redo")
 				assert.equal(document.getText(),"abcdef\n")
+			} finally {
+				await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
+			}
+		})
+		test("maintains multiple-operation redo stack with virtual space edits",async()=>{
+			const document=await vscode.workspace.openTextDocument({content:"abc\n"})
+			const editor=await vscode.window.showTextDocument(document)
+			try {
+				assert.equal(document.getText(),"abc\n")
+				await vscode.commands.executeCommand("cursorEnd")
+				await editor.edit(editBuilder=>{
+					editBuilder.insert(editor.selection.active,'def')
+				})
+				assert.equal(document.getText(),"abcdef\n")
+				await vscode.commands.executeCommand("cursorEnd")
+				await editor.edit(editBuilder=>{
+					editBuilder.insert(editor.selection.active,'ghi')
+				})
+				assert.equal(document.getText(),"abcdefghi\n")
+				await vscode.commands.executeCommand("fakeVirtualSpace.undo")
+				assert.equal(document.getText(),"abcdef\n")
+				await vscode.commands.executeCommand("fakeVirtualSpace.undo")
+				assert.equal(document.getText(),"abc\n")
+				await vscode.commands.executeCommand("fakeVirtualSpace.cursorDown")
+				assert.equal(document.getText(),"abc\n   ")
+				await vscode.commands.executeCommand("fakeVirtualSpace.redo")
+				assert.equal(document.getText(),"abcdef\n")
+				await vscode.commands.executeCommand("fakeVirtualSpace.redo")
+				assert.equal(document.getText(),"abcdefghi\n")
 			} finally {
 				await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
 			}

@@ -193,6 +193,7 @@ async function doVspace(editor:vscode.TextEditor,insertion:string) {
 
 let undoDocument:vscode.TextDocument|undefined
 let undoDocumentText:string|undefined
+let undoDocumentState:DocumentState|undefined
 
 async function undo() {
 	const releaseLock=await lock.acquire()
@@ -212,8 +213,10 @@ async function undo() {
 		const editor=vscode.window.activeTextEditor!
 		undoDocument=editor.document
 		undoDocumentText=undoDocument.getText()
+		undoDocumentState=getDocumentState(editor.document)
 		await vscode.commands.executeCommand('undo')
 	} finally {
+		undoDocumentState=undefined
 		undoDocumentText=undefined
 		undoDocument=undefined
 		releaseUndoLock()
@@ -224,13 +227,13 @@ function onDidChangeTextDocumentListener(event:vscode.TextDocumentChangeEvent) {
 	if (!undoLock.isLocked()) return
 	const document=event.document
 	if (document!=event.document) return
-	const state=getDocumentState(document)
 	const redo:Array<[number,number,string]>=[]
 	for (const change of event.contentChanges) {
 		const oldText=undoDocumentText!.substr(change.rangeOffset,change.rangeLength)
 		redo.push([change.rangeOffset,change.text.length,oldText])
 	}
-	state.redos.push(redo)
+	undoDocumentState!.redos.push(redo)
+	undoDocumentState!.version=document.version
 }
 
 async function redo() {
@@ -238,14 +241,14 @@ async function redo() {
 	try {
 		const editor=vscode.window.activeTextEditor!
 		const state=getDocumentState(editor.document)
-		if (state.perturbedRedoStack && state.redos.length>0) {
+		const redo=state.redos.pop()
+		if (state.perturbedRedoStack && redo) {
 			if (state.vspace) {
 				await vscode.commands.executeCommand('undo')
 				state.vspace=undefined
 			}
-			await doRecordedRedo(editor,state.redos.pop()!)
+			await doRecordedRedo(editor,redo)
 		} else {
-			state.redos.pop()
 			await vscode.commands.executeCommand('redo')
 		}
 		state.version=editor.document.version
