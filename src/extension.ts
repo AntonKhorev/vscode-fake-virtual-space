@@ -34,17 +34,23 @@ export function activate(context: vscode.ExtensionContext) {
 	if (!undoLock) undoLock=new Mutex()
 	vscode.workspace.onDidChangeTextDocument(onDidChangeTextDocumentListener)
 	vscode.workspace.onWillSaveTextDocument(event=>{
+		// could just run undo if was sure that document text is in focus, but there's no way to check it
+		//     return vscode.commands.executeCommand('undo')
+		// yes, you can save from find popup, undos land on popup text input in this case
 		const state=getDocumentState(event.document)
 		if (!state.vspace) return
-		const lineRange=event.document.lineAt(state.vspace).range
-		const edit=vscode.TextEdit.delete(new vscode.Range(state.vspace,lineRange.end))
-		event.waitUntil((async()=>[edit])())
+		vscode.window.showInformationMessage('Saved with fake virtual space - unless there are other onsave handlers that clean it up. Consider saving from outside of virtual space.')
+		// this is the cleanup code which damages redo stack - we'd rather not do anything:
+		// const lineRange=event.document.lineAt(state.vspace).range
+		// const edit=vscode.TextEdit.delete(new vscode.Range(state.vspace,lineRange.end))
+		// event.waitUntil((async()=>[edit])())
 	})
 	vscode.workspace.onDidCloseTextDocument(document=>{
 		documentStates.delete(document)
 	})
 	vscode.window.onDidChangeTextEditorSelection(async(event)=>{
 		// TODO check if text has focus if possible - but looks like it's impossible
+		// TODO check if document is changed after undo - if not redo immediately? no, can't do that b/c undo stack could be empty but redo stack contained actions from before
 		if (lock.isLocked()) return
 		const editor=event.textEditor
 		const state=getDocumentState(editor.document)

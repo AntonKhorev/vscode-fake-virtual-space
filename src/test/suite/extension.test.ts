@@ -247,17 +247,17 @@ suite("Extension Test Suite",()=>{
 				await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
 			}
 		})
+		/* making these work is too much trouble
 		test("cleans up vspace on save",async()=>{
-			const filename=`${__dirname}/vspace-save-test.txt`
+			const filename=`${__dirname}/vspace-save-cleanup-test.txt`
 			fs.writeFileSync(filename,"")
 			try {
 				const document=await vscode.workspace.openTextDocument(filename)
 				const editor=await vscode.window.showTextDocument(document)
 				try {
 					assert.equal(document.getText(),"")
-					const position=editor.selection.active
 					await editor.edit(editBuilder=>{
-						editBuilder.insert(position,'123')
+						editBuilder.insert(editor.selection.active,'123')
 					})
 					await vscode.commands.executeCommand("cursorEnd")
 					assert.equal(document.getText(),"123")
@@ -273,5 +273,62 @@ suite("Extension Test Suite",()=>{
 				fs.unlinkSync(filename)
 			}
 		})
+		test("restores vspace after save",async()=>{
+			const filename=`${__dirname}/vspace-save-restore-test.txt`
+			fs.writeFileSync(filename,"")
+			try {
+				const document=await vscode.workspace.openTextDocument(filename)
+				const editor=await vscode.window.showTextDocument(document)
+				try {
+					assert.equal(document.getText(),"")
+					await editor.edit(editBuilder=>{
+						editBuilder.insert(editor.selection.active,'123')
+					})
+					await vscode.commands.executeCommand("cursorEnd")
+					assert.equal(document.getText(),"123")
+					await vscode.commands.executeCommand("fakeVirtualSpace.cursorRight")
+					assert.equal(document.getText(),"123 ")
+					await document.save()
+					assert.equal(document.getText(),"123 ")
+				} finally {
+					await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
+				}
+			} finally {
+				fs.unlinkSync(filename)
+			}
+		})
+		test("maintains redo after save",async()=>{
+			const filename=`${__dirname}/vspace-save-redo-test.txt`
+			fs.writeFileSync(filename,"")
+			try {
+				const document=await vscode.workspace.openTextDocument(filename)
+				const editor=await vscode.window.showTextDocument(document)
+				try {
+					assert.equal(document.getText(),"")
+					await editor.edit(editBuilder=>{
+						editBuilder.insert(editor.selection.active,'123')
+					})
+					assert.equal(document.getText(),"123")
+					await vscode.commands.executeCommand("cursorEnd")
+					await editor.edit(editBuilder=>{
+						editBuilder.insert(editor.selection.active,'456')
+					})
+					assert.equal(document.getText(),"123456")
+					await vscode.commands.executeCommand("fakeVirtualSpace.undo")
+					assert.equal(document.getText(),"123")
+					await vscode.commands.executeCommand("fakeVirtualSpace.cursorRight")
+					assert.equal(document.getText(),"123 ")
+					await document.save()
+					assert.equal(document.getText(),"123 ")
+					await vscode.commands.executeCommand("fakeVirtualSpace.redo")
+					assert.equal(document.getText(),"123456")
+				} finally {
+					await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
+				}
+			} finally {
+				fs.unlinkSync(filename)
+			}
+		})
+		*/
 	})
 })
