@@ -48,26 +48,7 @@ export function activate(context: vscode.ExtensionContext) {
 	vscode.workspace.onDidCloseTextDocument(document=>{
 		documentStates.delete(document)
 	})
-	vscode.window.onDidChangeTextEditorSelection(async(event)=>{
-		// TODO check if text has focus if possible - but looks like it's impossible
-		// TODO check if document is changed after undo - if not redo immediately? no, can't do that b/c undo stack could be empty but redo stack contained actions from before
-		if (lock.isLocked()) return
-		const editor=event.textEditor
-		const state=getDocumentState(editor.document)
-		if (!state.vspace) return
-		let maxVspaceCharacter:number|undefined
-		for (const selection of event.selections) {
-			// TODO complete multiple selection support
-			if (selection.active.line!=state.vspace.line || selection.active.character<=state.vspace.character) continue
-			if (maxVspaceCharacter==null || selection.active.character>maxVspaceCharacter) {
-				maxVspaceCharacter=selection.active.character
-			}
-		}
-		const text=editor.document.lineAt(state.vspace.line).text
-		const insertion=text.slice(state.vspace.character,maxVspaceCharacter)
-		await cleanupVspace(editor) // can't guarantee that stop position is not going to be inserted if editor.edit() is done - have to undo first
-		await doVspace(editor,insertion)
-	})
+	vscode.window.onDidChangeTextEditorSelection(onDidChangeTextEditorSelectionListener)
 	context.subscriptions.push(
 		vscode.commands.registerCommand('fakeVirtualSpace.cursorUp'   ,()=>cursorVerticalMove('cursorUp')),
 		vscode.commands.registerCommand('fakeVirtualSpace.cursorDown' ,()=>cursorVerticalMove('cursorDown')),
@@ -82,6 +63,33 @@ export function activate(context: vscode.ExtensionContext) {
 
 export function deactivate() {
 	// TODO do undos if necessary
+}
+
+async function onDidChangeTextEditorSelectionListener(event:vscode.TextEditorSelectionChangeEvent) {
+	// TODO check if text has focus if possible - but looks like it's impossible
+	// TODO check if document is changed after undo - if not redo immediately? no, can't do that b/c undo stack could be empty but redo stack contained actions from before
+	if (lock.isLocked()) return
+	const releaseLock=await lock.acquire()
+	try {
+		const editor=event.textEditor
+		const state=getDocumentState(editor.document)
+		if (!state.vspace) return
+		let maxVspaceCharacter:number|undefined
+		for (const selection of event.selections) {
+			// TODO complete multiple selection support
+			if (selection.active.line!=state.vspace.line || selection.active.character<=state.vspace.character) continue
+			if (maxVspaceCharacter==null || selection.active.character>maxVspaceCharacter) {
+				maxVspaceCharacter=selection.active.character
+			}
+		}
+		const text=editor.document.lineAt(state.vspace.line).text
+		const insertion=text.slice(state.vspace.character,maxVspaceCharacter)
+		await cleanupVspace(editor) // can't guarantee that stop position is not going to be inserted if editor.edit() is done - have to undo first
+		if (maxVspaceCharacter==null) return
+		await doVspace(editor,insertion)
+	} finally {
+		releaseLock()
+	}
 }
 
 async function cursorEnd() {

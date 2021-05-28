@@ -152,6 +152,22 @@ suite("Extension Test Suite",()=>{
 				await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
 			}
 		})
+		/* behaves differently when run as a test
+		test("removes fake vspace on home",async()=>{
+			const document=await vscode.workspace.openTextDocument({content:"x"})
+			const editor=await vscode.window.showTextDocument(document)
+			try {
+				await vscode.commands.executeCommand("cursorEnd")
+				assert.equal(document.getText(),"x")
+				await vscode.commands.executeCommand("fakeVirtualSpace.cursorRight")
+				assert.equal(document.getText(),"x ")
+				await vscode.commands.executeCommand("cursorHome")
+				assert.equal(document.getText(),"x")
+			} finally {
+				await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
+			}
+		})
+		*/
 		test("does undo past vspace addition",async()=>{
 			const document=await vscode.workspace.openTextDocument({content:"abc\n"})
 			const editor=await vscode.window.showTextDocument(document)
