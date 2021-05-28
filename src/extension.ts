@@ -76,6 +76,7 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand('fakeVirtualSpace.cursorEnd',cursorEnd),
 		vscode.commands.registerCommand('fakeVirtualSpace.undo',undo),
 		vscode.commands.registerCommand('fakeVirtualSpace.redo',redo)
+		// TODO have find handler that cleans up vspace first
 	)
 }
 

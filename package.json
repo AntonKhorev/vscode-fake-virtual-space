@@ -55,37 +55,37 @@
 			{
 				"command": "fakeVirtualSpace.cursorUp",
 				"key": "up",
-				"when": "editorTextFocus && !editorReadonly && !suggestWidgetVisible && !parameterHintsVisible"
+				"when": "editorTextFocus && !editorReadonly && !suggestWidgetVisible"
 			},
 			{
 				"command": "fakeVirtualSpace.cursorDown",
 				"key": "down",
-				"when": "editorTextFocus && !editorReadonly && !suggestWidgetVisible && !parameterHintsVisible"
+				"when": "editorTextFocus && !editorReadonly && !suggestWidgetVisible"
 			},
 			{
 				"command": "fakeVirtualSpace.cursorLeft",
 				"key": "left",
-				"when": "editorTextFocus && !editorReadonly && !suggestWidgetVisible && !parameterHintsVisible"
+				"when": "editorTextFocus && !editorReadonly"
 			},
 			{
 				"command": "fakeVirtualSpace.cursorRight",
 				"key": "right",
-				"when": "editorTextFocus && !editorReadonly && !suggestWidgetVisible && !parameterHintsVisible"
+				"when": "editorTextFocus && !editorReadonly"
 			},
 			{
 				"command": "fakeVirtualSpace.cursorEnd",
 				"key": "end",
-				"when": "editorTextFocus && !editorReadonly && !suggestWidgetVisible && !parameterHintsVisible"
+				"when": "editorTextFocus && !editorReadonly"
 			},
 			{
 				"command": "fakeVirtualSpace.undo",
 				"key": "ctrl+z",
-				"when": "editorTextFocus && !editorReadonly && !suggestWidgetVisible && !parameterHintsVisible"
+				"when": "editorTextFocus && !editorReadonly"
 			},
 			{
 				"command": "fakeVirtualSpace.redo",
 				"key": "ctrl+y",
-				"when": "editorTextFocus && !editorReadonly && !suggestWidgetVisible && !parameterHintsVisible"
+				"when": "editorTextFocus && !editorReadonly"
 			}
 		]
 	},
