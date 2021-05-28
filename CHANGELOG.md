@@ -6,6 +6,7 @@ All notable changes to the "vscode-fake-virtual-space" extension will be documen
 
 - Removed some autocomplete/hint restrictions from keybindings
 - Fix for selection change when the cursor stays on the same line
+- Attempt selection change cleanups only on keyboard/mouse-caused changes
 
 ## 0.0.6
 

@@ -69,6 +69,10 @@ async function onDidChangeTextEditorSelectionListener(event:vscode.TextEditorSel
 	// TODO check if text has focus if possible - but looks like it's impossible
 	// TODO check if document is changed after undo - if not redo immediately? no, can't do that b/c undo stack could be empty but redo stack contained actions from before
 	if (lock.isLocked()) return
+	if (!(
+		event.kind==vscode.TextEditorSelectionChangeKind.Keyboard ||
+		event.kind==vscode.TextEditorSelectionChangeKind.Mouse
+	)) return // find popup causes Command kind, undo causes undefined kind? - not every time
 	const releaseLock=await lock.acquire()
 	try {
 		const editor=event.textEditor
