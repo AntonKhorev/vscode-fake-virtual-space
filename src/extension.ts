@@ -76,6 +76,10 @@ async function onDidChangeTextEditorSelectionListener(event:vscode.TextEditorSel
 	const releaseLock=await lock.acquire()
 	try {
 		const editor=event.textEditor
+		// if (editor.selections.length!=1) {
+		// 	await cleanupVspace(editor)
+		// 	return
+		// }
 		const state=getDocumentState(editor.document)
 		if (!state.vspace) return
 		let maxVspaceCharacter:number|undefined
@@ -111,6 +115,11 @@ async function cursorHorizontalMove(moveCommand:string,moveDelta:number) {
 	const releaseLock=await lock.acquire()
 	try {
 		const editor=vscode.window.activeTextEditor!
+		if (editor.selections.length!=1) {
+			await cleanupVspace(editor)
+			await vscode.commands.executeCommand(moveCommand)
+			return
+		}
 		await undoVspaceIfNotInside(editor)
 		const position=editor.selection.active;
 		const text=editor.document.lineAt(position).text
@@ -155,6 +164,11 @@ async function cursorVerticalMove(moveCommand:string) {
 	const releaseLock=await lock.acquire()
 	try {
 		const editor=vscode.window.activeTextEditor!
+		if (editor.selections.length!=1) {
+			await cleanupVspace(editor)
+			await vscode.commands.executeCommand(moveCommand)
+			return
+		}
 		const selectionBefore=editor.selection
 		await vscode.commands.executeCommand(moveCommand)
 		const selectionAfter=editor.selection
@@ -199,6 +213,10 @@ async function undoVspace(editor:vscode.TextEditor) {
 	await vscode.commands.executeCommand('undo')
 	const restoredPosition=new vscode.Position(savedLine,Math.min(savedCharacter,editor.document.lineAt(savedLine).text.length))
 	editor.selection=new vscode.Selection(restoredPosition,restoredPosition)
+	// editor.selections=[
+	// 	new vscode.Selection(restoredPosition,restoredPosition),
+	// 	...editor.selections.slice(1)
+	// ]
 }
 
 async function doVspace(editor:vscode.TextEditor,insertion:string) {

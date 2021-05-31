@@ -2,6 +2,10 @@
 
 All notable changes to the "vscode-fake-virtual-space" extension will be documented in this file.
 
+## 0.0.8
+
+- Disable fake vspace for multiple cursors because it worked only for the first one
+
 ## 0.0.7
 
 - Removed some autocomplete/hint restrictions from keybindings

@@ -19,11 +19,12 @@ To force this behavior, we have to pad lines with spaces if they aren't long eno
 
 ## Known issues
 
+- Multiple cursors don't cause fake virtual space to appear.
+- When inside fake vspace, adding another cursor causes existing cursor to disappear.
 - Does not clean up fake vspace when find/replace popup causes selection change.
-- Multiple selections are likely to work incorrectly inside fake virtual space.
-- Clicking on empty space outside existing fake virtual space won't create more fake virtual space. Could be fixable if there's a mouse click event with readable click row/column.
-- Document is shown as unsaved when fake virtual space exists and virtual space is not cleaned up on save. This is intended because the best solution seems to be to warn the user about saved fake space. Removing it properly is tricky if undo/redo stack is to be maintained because of reasons 1 and 2 described below.
-- Fake virtual space state may get lost when saving untitled documents. Could be fixable if could store document metadata that persisted through saves with *untitled:* to *file:* uri changes.
+- Clicking on empty space outside existing fake vspace won't create more fake vspace. Could be fixable if there's a mouse click event with readable click row/column.
+- Document is shown as unsaved when fake vspace exists and vspace is not cleaned up on save. This is intended because the best solution seems to be to warn the user about saved fake space. Removing it properly is tricky if undo/redo stack is to be maintained because of reasons 1 and 2 described below.
+- Fake vspace state may get lost when saving untitled documents. Could be fixable if could store document metadata that persisted through saves with *untitled:* to *file:* uri changes.
 - Move/copy line up/down burns in fake vspace. It's easy to fix by introducing more keybindings but I'm not sure if it's worth it.
 
 Some of these issues are difficult to fix because:
