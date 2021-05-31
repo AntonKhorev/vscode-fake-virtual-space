@@ -20,7 +20,6 @@ To force this behavior, we have to pad lines with spaces if they aren't long eno
 ## Known issues
 
 - Multiple cursors don't cause fake virtual space to appear.
-- It's possible to put additional cursor at the end of the line that already has a cursor in fake vspace. Because fake vspace is not supported for multiple cursors, it's cleaned up when the cursor is added. After cleanup the already existing cursor will end up on the same position as the newly added one. Thus you'll have multiple cursors looking like a single cursor.
 - Does not clean up fake vspace when find/replace popup causes selection change.
 - Clicking on empty space outside existing fake vspace won't create more fake vspace. Could be fixable if there's a mouse click event with readable click row/column.
 - Document is shown as unsaved when fake vspace exists and vspace is not cleaned up on save. This is intended because the best solution seems to be to warn the user about saved fake space. Removing it properly is tricky if undo/redo stack is to be maintained because of reasons 1 and 2 described below.

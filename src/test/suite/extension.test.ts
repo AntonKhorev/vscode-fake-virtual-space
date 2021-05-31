@@ -62,6 +62,31 @@ suite("Extension Test Suite",()=>{
 			)
 		})
 	})
+	suite("combineCoincidingSelections",()=>{
+		test("keeps single selection",()=>{
+			const selection=new vscode.Selection(new vscode.Position(10,3),new vscode.Position(12,5))
+			const result=myExtension.combineCoincidingSelections([selection])
+			assert.deepEqual(result,[selection])
+		})
+		test("keeps double nonoverlapping nonempty selections",()=>{
+			const selection1=new vscode.Selection(new vscode.Position(10,3),new vscode.Position(12,5))
+			const selection2=new vscode.Selection(new vscode.Position(42,0),new vscode.Position(42,7))
+			const result=myExtension.combineCoincidingSelections([selection1,selection2])
+			assert.deepEqual(result,[selection1,selection2])
+		})
+		test("keeps double nonoverlapping empty selections",()=>{
+			const selection1=new vscode.Selection(new vscode.Position(4,6),new vscode.Position(4,6))
+			const selection2=new vscode.Selection(new vscode.Position(5,1),new vscode.Position(5,1))
+			const result=myExtension.combineCoincidingSelections([selection1,selection2])
+			assert.deepEqual(result,[selection1,selection2])
+		})
+		test("joins double coinciding empty selections",()=>{
+			const selection1=new vscode.Selection(new vscode.Position(4,6),new vscode.Position(4,6))
+			const selection2=new vscode.Selection(new vscode.Position(4,6),new vscode.Position(4,6))
+			const result=myExtension.combineCoincidingSelections([selection1,selection2])
+			assert.deepEqual(result,[selection1])
+		})
+	})
 	suite("Integration Tests",()=>{
 		test("does horizontal movement vspace expansion",async()=>{
 			const document=await vscode.workspace.openTextDocument({content:"begin("})

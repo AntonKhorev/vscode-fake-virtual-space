@@ -225,10 +225,10 @@ async function undoKeepingSelection(editor:vscode.TextEditor) {
 		position.line,
 		Math.min(position.character,editor.document.lineAt(position).range.end.character)
 	)
-	editor.selections=savedSelections.map((selection:vscode.Selection):vscode.Selection=>new vscode.Selection(
+	editor.selections=combineCoincidingSelections(savedSelections.map((selection:vscode.Selection):vscode.Selection=>new vscode.Selection(
 		fixPosition(selection.anchor),
 		fixPosition(selection.active)
-	))
+	)))
 }
 
 let undoDocument:vscode.TextDocument|undefined
@@ -307,6 +307,26 @@ async function doRecordedRedo(editor:vscode.TextEditor,redo:Array<[number,number
 			),replacement)
 		}
 	})
+}
+
+export function combineCoincidingSelections(selections:vscode.Selection[]):vscode.Selection[] {
+	const emptySelections:Record<number,Record<number,boolean>>={}
+	const result=[]
+	for (const selection of selections) {
+		if (!selection.isEmpty) {
+			result.push(selection)
+			continue
+		}
+		if (!emptySelections[selection.active.line]) {
+			emptySelections[selection.active.line]={}
+		}
+		if (!emptySelections[selection.active.line][selection.active.character]) {
+			emptySelections[selection.active.line][selection.active.character]=true
+			result.push(selection)
+			continue
+		}
+	}
+	return result
 }
 
 export function getVerticalMoveInsertion(
