@@ -168,6 +168,26 @@ suite("Extension Test Suite",()=>{
 				await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
 			}
 		})
+		test("horizontal movement first collapses the selection then moves into vspace",async()=>{
+			const document=await vscode.workspace.openTextDocument({content:"12345"})
+			const editor=await vscode.window.showTextDocument(document)
+			try {
+				editor.selection=new vscode.Selection(0,0,0,5)
+				assert.equal(document.getText(),"12345")
+				assert.equal(editor.selection.anchor.character,0)
+				assert.equal(editor.selection.active.character,5)
+				await vscode.commands.executeCommand("fakeVirtualSpace.cursorRight")
+				assert.equal(document.getText(),"12345")
+				assert.equal(editor.selection.anchor.character,5)
+				assert.equal(editor.selection.active.character,5)
+				await vscode.commands.executeCommand("fakeVirtualSpace.cursorRight")
+				assert.equal(document.getText(),"12345 ")
+				assert.equal(editor.selection.anchor.character,6)
+				assert.equal(editor.selection.active.character,6)
+			} finally {
+				await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
+			}
+		})
 		/* behaves differently when run as a test
 		test("removes fake vspace on home",async()=>{
 			const document=await vscode.workspace.openTextDocument({content:"x"})

@@ -5,6 +5,7 @@ All notable changes to the "vscode-fake-virtual-space" extension will be documen
 ## 0.0.8
 
 - Disable fake vspace for multiple cursors because it worked only for the first one
+- Collapse the selection on horizontal movement attempt when the cursor is at the end of the line
 
 ## 0.0.7
 

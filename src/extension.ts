@@ -121,6 +121,10 @@ async function cursorHorizontalMove(moveCommand:string,moveDelta:number) {
 			return
 		}
 		await undoVspaceIfNotInside(editor)
+		if (!editor.selection.isEmpty) {
+			await vscode.commands.executeCommand(moveCommand) // collapses selection
+			return
+		}
 		const position=editor.selection.active;
 		const text=editor.document.lineAt(position).text
 		if (moveDelta>0 && position.character<text.length) {
