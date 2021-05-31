@@ -76,10 +76,10 @@ async function onDidChangeTextEditorSelectionListener(event:vscode.TextEditorSel
 	const releaseLock=await lock.acquire()
 	try {
 		const editor=event.textEditor
-		// if (editor.selections.length!=1) {
-		// 	await cleanupVspace(editor)
-		// 	return
-		// }
+		if (editor.selections.length!=1) {
+			await cleanupVspace(editor)
+			return
+		}
 		const state=getDocumentState(editor.document)
 		if (!state.vspace) return
 		let maxVspaceCharacter:number|undefined
@@ -207,16 +207,16 @@ async function undoVspaceIfNotInside(editor:vscode.TextEditor) {
 }
 
 async function undoVspace(editor:vscode.TextEditor) {
-	// TODO restore selection fully if it's not inside vspace
-	const savedLine=editor.selection.active.line
-	const savedCharacter=editor.selection.active.character
-	await vscode.commands.executeCommand('undo')
-	const restoredPosition=new vscode.Position(savedLine,Math.min(savedCharacter,editor.document.lineAt(savedLine).text.length))
-	editor.selection=new vscode.Selection(restoredPosition,restoredPosition)
-	// editor.selections=[
-	// 	new vscode.Selection(restoredPosition,restoredPosition),
-	// 	...editor.selections.slice(1)
-	// ]
+	const savedSelections=editor.selections
+	await vscode.commands.executeCommand('undo') // doesn't change number of lines
+	const fixPosition=(position:vscode.Position):vscode.Position=>new vscode.Position(
+		position.line,
+		Math.min(position.character,editor.document.lineAt(position).range.end.character)
+	)
+	editor.selections=savedSelections.map((selection:vscode.Selection):vscode.Selection=>new vscode.Selection(
+		fixPosition(selection.anchor),
+		fixPosition(selection.active)
+	))
 }
 
 async function doVspace(editor:vscode.TextEditor,insertion:string) {
