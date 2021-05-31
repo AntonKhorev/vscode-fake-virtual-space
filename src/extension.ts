@@ -147,8 +147,7 @@ async function cursorHorizontalMove(moveCommand:string,moveDelta:number) {
 						editBuilder.delete(new vscode.Range(new vscode.Position(position.line,position.character-1),position))
 					})
 				} else {
-					await undoVspace(editor)
-					state.version=editor.document.version
+					await cleanupVspace(editor)
 				}
 			} else {
 				await vscode.commands.executeCommand(moveCommand)
@@ -192,7 +191,7 @@ async function cleanupVspace(editor:vscode.TextEditor) {
 	const state=getDocumentState(editor.document)
 	if (!state.vspace) return
 	state.vspace=undefined
-	await undoVspace(editor)
+	await undoKeepingSelection(editor)
 	state.version=editor.document.version
 }
 
@@ -202,11 +201,20 @@ async function undoVspaceIfNotInside(editor:vscode.TextEditor) {
 	const position=editor.selection.active
 	if (position.line==state.vspace.line && position.character>=state.vspace.character) return
 	state.vspace=undefined
-	await undoVspace(editor)
+	await undoKeepingSelection(editor)
 	state.version=editor.document.version
 }
 
-async function undoVspace(editor:vscode.TextEditor) {
+async function doVspace(editor:vscode.TextEditor,insertion:string) {
+	const position=editor.selection.active
+	const state=getDocumentState(editor.document)
+	await state.edit(editor,editBuilder=>{
+		editBuilder.insert(position,insertion)
+	})
+	state.vspace=position
+}
+
+async function undoKeepingSelection(editor:vscode.TextEditor) {
 	const savedSelections=editor.selections
 	await vscode.commands.executeCommand('undo') // doesn't change number of lines
 	const fixPosition=(position:vscode.Position):vscode.Position=>new vscode.Position(
@@ -217,15 +225,6 @@ async function undoVspace(editor:vscode.TextEditor) {
 		fixPosition(selection.anchor),
 		fixPosition(selection.active)
 	))
-}
-
-async function doVspace(editor:vscode.TextEditor,insertion:string) {
-	const position=editor.selection.active
-	const state=getDocumentState(editor.document)
-	await state.edit(editor,editBuilder=>{
-		editBuilder.insert(position,insertion)
-	})
-	state.vspace=position
 }
 
 let undoDocument:vscode.TextDocument|undefined
