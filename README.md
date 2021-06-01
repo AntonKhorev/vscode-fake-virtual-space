@@ -15,12 +15,27 @@ The goal is to make the cursor to move in a certain direction no matter how long
 
 It is achievable if the editor could display the cursor beyond the end-of-line (but it can't). That was a common feature of code editors back in the day up to early 2000s, then it started to disappear. For example, the ["heavy" Visual Studio](https://visualstudio.microsoft.com/vs/), being an older IDE has virtual space option, but newer Visual Studio Code doesn't.
 
-To force this behavior, we have to pad lines with spaces if they aren't long enough. Also we have to clean up these spaces once they are not needed. While doing this, we need not to distort the undo stack too much.
+To force this behavior, we have to pad lines with spaces if they aren't long enough when the cursor is moved into the purported virtual space. Also we have to clean up these spaces once they are not needed. While doing this, we must not distort the undo stack too much. This is achieved by using only the top position of the undo stack for padding spaces making it possible to remove them with a single undo. In addition to that we need to maintain our own redo stack to be able to perform redos without the interference of padding spaces.
+
+## Configuration
+
+This plugin adds the following movement commands and binds them to the arrow keys and to the *end* key:
+
+- `fakeVirtualSpace.cursorUp`
+- `fakeVirtualSpace.cursorDown`
+- `fakeVirtualSpace.cursorLeft`
+- `fakeVirtualSpace.cursorRight`
+- `fakeVirtualSpace.cursorEnd`
+
+It also adds the undo/redo commands and binds them to *Ctrl+Z/Y*:
+
+- `fakeVirtualSpace.undo`
+- `fakeVirtualSpace.redo`
 
 ## Known issues
 
 - Multiple cursors don't cause fake virtual space to appear.
-- Does not clean up fake vspace when find/replace popup causes selection change.
+- Fake vspace is not cleaned up when the *find/replace* popup causes selection changes. This is difficult to fix because cleaning up is done with the *undo* command and the popup is going to receive this command when in focus. See reason 2 below.
 - Clicking on empty space outside existing fake vspace won't create more fake vspace. Could be fixable if there's a mouse click event with readable click row/column.
 - Document is shown as unsaved when fake vspace exists and vspace is not cleaned up on save. This is intended because the best solution seems to be to warn the user about saved fake space. Removing it properly is tricky if undo/redo stack is to be maintained because of reasons 1 and 2 described below.
 - Fake vspace state may get lost when saving untitled documents. Could be fixable if could store document metadata that persisted through saves with *untitled:* to *file:* uri changes.
