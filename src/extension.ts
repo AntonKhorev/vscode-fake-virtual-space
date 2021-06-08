@@ -164,6 +164,12 @@ async function cursorHorizontalMove(moveCommand:string,moveDelta:number) {
 }
 
 async function cursorVerticalMove(moveCommand:string) {
+	// console.log(
+	// 	'word wrap:',
+	// 	vscode.workspace.getConfiguration('editor',vscode.window.activeTextEditor!.document).get('wordWrap')
+	// )
+	
+	
 	const releaseLock=await lock.acquire()
 	try {
 		const editor=vscode.window.activeTextEditor!
@@ -183,7 +189,8 @@ async function cursorVerticalMove(moveCommand:string) {
 			editor.document.lineAt(selectionAfter.active).text
 		)
 		await cleanupVspace(editor)
-		if (insertion!=null) {
+		const isWordWrapOn=vscode.workspace.getConfiguration('editor',editor.document).get('wordWrap')=='on'
+		if (insertion!=null && !isWordWrapOn) {
 			await doVspace(editor,insertion)
 		}
 	} finally {
