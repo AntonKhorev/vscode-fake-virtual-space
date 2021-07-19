@@ -40,10 +40,12 @@ It also adds the undo/redo commands and binds them to *Ctrl+Z/Y*:
 - Document is shown as unsaved when fake vspace exists and vspace is not cleaned up on save. This is intended because the best solution seems to be to warn the user about saved fake space. Removing it properly is tricky if undo/redo stack is to be maintained because of reasons 1 and 2 described below.
 - Fake vspace state may get lost when saving untitled documents. Could be fixable if could store document metadata that persisted through saves with *untitled:* to *file:* uri changes.
 - Move/copy line up/down burns in fake vspace. It's easy to fix by introducing more keybindings but I'm not sure if it's worth it.
-- No fake vspace is added when the cursor is moved vertically and word wrap is on.
+- No fake vspace is added when the cursor is moved vertically and word wrap is on. Workarounds are being tried now. See reasons 4 and 5 below.
 
 Some of these issues are difficult to fix because:
 
 1. There's [no undo stack api](https://stackoverflow.com/questions/57900097/where-to-find-vscode-undo-stack-documentation), the stack can only be manipulated by running *undo/redo* commands. Undos are used to alter/clean up fake vspace in order not to clog the stack with these changes.
 2. *Undo/redo* commands are going to work as intended only if the document text has focus yet it's impossible to check if it's the case from inside of the command/event handler code. It's possible to check from [keybindings *when clauses*](https://code.visualstudio.com/api/references/when-clause-contexts#available-contexts) though.
 3. [No mouse pointer events are provided by the api](https://github.com/Microsoft/vscode/issues/47239). It's only possible to know that the cursor has moved to some (line,character)-position that is always inside the existing text, not (x,y)-position that exist independently of the text.
+4. [No wrapping information is provided by the api](https://github.com/microsoft/vscode/issues/23045#issuecomment-289383977).
+5. The on-screen cursor location is not fully specified by `editor.selection` when word wrap is on. A line break caused by word wrap is going to have two on-screen locations with the same character coordinate, right before the break and right after the break. What's worse, `cursorUndo` command is not guaranteed to restore the exact on-screen location in this case.
