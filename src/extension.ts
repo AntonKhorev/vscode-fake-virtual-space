@@ -235,6 +235,10 @@ async function cursorVerticalMoveWithWrap(editor:vscode.TextEditor,moveCommand:s
 	const selectionAfter=editor.selection
 	const lineAfter=editor.document.lineAt(selectionAfter.active)
 	await cleanupVspace(editor)
+	if (selectionAfter.active.line==0 && selectionAfter.active.character==0) {
+		state.column=0
+		return
+	}
 	if (!selectionAfter.active.isEqual(lineAfter.range.end)) {
 		if (state.column>0) await doSillyCursorDance()
 		return
