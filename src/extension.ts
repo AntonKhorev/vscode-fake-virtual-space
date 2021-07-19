@@ -9,6 +9,7 @@ class DocumentState {
 	vspace:vscode.Position|undefined
 	redos:Array<Array<[number,number,string]>>
 	perturbedRedoStack:boolean
+	column:number|undefined
 	constructor(version:number) {
 		this.version=version
 		this.redos=[]
@@ -76,11 +77,12 @@ async function onDidChangeTextEditorSelectionListener(event:vscode.TextEditorSel
 	const releaseLock=await lock.acquire()
 	try {
 		const editor=event.textEditor
+		const state=getDocumentState(editor.document)
+		state.column=undefined
 		if (editor.selections.length!=1) {
 			await cleanupVspace(editor)
 			return
 		}
-		const state=getDocumentState(editor.document)
 		if (!state.vspace) return
 		let maxVspaceCharacter:number|undefined
 		for (const selection of event.selections) {
@@ -127,12 +129,13 @@ async function cursorHorizontalMove(moveCommand:string,moveDelta:number) {
 		}
 		const position=editor.selection.active;
 		const text=editor.document.lineAt(position).text
+		const state=getDocumentState(editor.document)
+		state.column=undefined
 		if (moveDelta>0 && position.character<text.length) {
 			await vscode.commands.executeCommand(moveCommand)
 			return
 		}
 		if (moveDelta>0 && position.character>=text.length) {
-			const state=getDocumentState(editor.document)
 			await state.edit(editor,editBuilder=>{
 				editBuilder.insert(position,' ')
 			})
@@ -172,6 +175,11 @@ async function cursorVerticalMove(moveCommand:string) {
 			await vscode.commands.executeCommand(moveCommand)
 			return
 		}
+		const isWordWrapOn=vscode.workspace.getConfiguration('editor',editor.document).get('wordWrap')=='on'
+		if (isWordWrapOn) {
+			await cursorVerticalMoveWithWrap(editor,moveCommand)
+			return
+		}
 		const selectionBefore=editor.selection
 		await vscode.commands.executeCommand(moveCommand)
 		const selectionAfter=editor.selection
@@ -183,12 +191,58 @@ async function cursorVerticalMove(moveCommand:string) {
 			editor.document.lineAt(selectionAfter.active).text
 		)
 		await cleanupVspace(editor)
-		const isWordWrapOn=vscode.workspace.getConfiguration('editor',editor.document).get('wordWrap')=='on'
-		if (insertion!=null && !isWordWrapOn) {
+		if (insertion!=null) {
 			await doVspace(editor,insertion)
 		}
 	} finally {
 		releaseLock()
+	}
+}
+
+async function cursorVerticalMoveWithWrap(editor:vscode.TextEditor,moveCommand:string) {
+	const getSelectionHome=async():Promise<vscode.Selection>=>{
+		const selectionPreHome=editor.selection
+		await vscode.commands.executeCommand('cursorMove',{to:'wrappedLineEnd'})
+		const wasAtEnd=selectionPreHome.isEqual(editor.selection)
+		if (!wasAtEnd) {
+			await vscode.commands.executeCommand('cursorUndo')
+		}
+		await vscode.commands.executeCommand('cursorMove',{to:'wrappedLineStart'})
+		const selectionHome=editor.selection
+		if (!selectionHome.isEqual(selectionPreHome)) {
+			if (!wasAtEnd) {
+				await vscode.commands.executeCommand('cursorUndo') // doesn't fully restore screen position at wrap points
+			} else {
+				await vscode.commands.executeCommand('cursorMove',{to:'wrappedLineEnd'})
+			}
+		}
+		return selectionHome
+	}
+	const doSillyCursorDance=async()=>{
+		// when word wrap is on, selection.active doesn't fully describe caret position on the screen
+		//   if caret is exactly at the wrap point, it could be either after the last char before the wrap
+		//   or before the first char after the wrap
+		// do a silly cursor dance to fix that
+		await vscode.commands.executeCommand('cursorLeft')
+		await vscode.commands.executeCommand('cursorRight')
+	}
+	const state=getDocumentState(editor.document)
+	if (state.column==null) {
+		const selectionHome=await getSelectionHome()
+		state.column=editor.selection.active.character-selectionHome.active.character
+	}
+	await vscode.commands.executeCommand(moveCommand)
+	const selectionAfter=editor.selection
+	const lineAfter=editor.document.lineAt(selectionAfter.active)
+	await cleanupVspace(editor)
+	if (!selectionAfter.active.isEqual(lineAfter.range.end)) {
+		if (state.column>0) await doSillyCursorDance()
+		return
+	}
+	const selectionAfterHome=await getSelectionHome()
+	const lineLengthAfterWrap=lineAfter.text.length-selectionAfterHome.active.character
+	if (lineLengthAfterWrap<state.column) {
+		await doVspace(editor,' '.repeat(state.column-lineLengthAfterWrap))
 	}
 }
 
