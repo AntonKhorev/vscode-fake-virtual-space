@@ -177,8 +177,11 @@ async function cursorVerticalMove(moveCommand:string) {
 			await vscode.commands.executeCommand(moveCommand)
 			return
 		}
-		const isWordWrapOn=vscode.workspace.getConfiguration('editor',editor.document).get('wordWrap')=='on'
-		await (isWordWrapOn?cursorVerticalMoveWithWordWrap:cursorVerticalMoveWithoutWordWrap)(editor,moveCommand)
+		const isWordWrapOff=vscode.workspace.getConfiguration('editor',editor.document).get('wordWrap')=='off'
+		await (isWordWrapOff
+			? cursorVerticalMoveWithoutWordWrap
+			: cursorVerticalMoveWithWordWrap
+		)(editor,moveCommand)
 	} finally {
 		releaseLock()
 	}
