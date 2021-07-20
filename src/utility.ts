@@ -32,13 +32,7 @@ export function getVerticalMoveInsertion(
 	const inSameTabSlot=(width1:number,width2:number):boolean=>{
 		return Math.floor(width1/tabSize)==Math.floor(width2/tabSize)
 	}
-	const nextWidth=(width:number,char:string):number=>{
-		if (char=='\t') {
-			return (Math.floor(width/tabSize)+1)*tabSize
-		} else {
-			return width+1
-		}
-	}
+	const nextWidth=makeNextWidthComputer(tabSize)
 	const nextWidthAddingToIndent=(width:number,char:string):number=>{
 		while (
 			char=='\t' &&
@@ -71,4 +65,40 @@ export function getVerticalMoveInsertion(
 	}
 	if (indent=='') return null
 	return indent
+}
+
+export function getColumnInsideWrappedLine(
+	tabSize: number,
+	wrappingIndent: string, // 'none' 'same' 'indent' 'deepIndent'
+	homeCharacter: number,
+	cursorCharacter: number,
+	text: string
+): number|undefined {
+	const nextWidth=makeNextWidthComputer(tabSize)
+	const isIndentChar=(char:string):boolean=>(char==' ' || char=='\t')
+	let width=0
+	if (wrappingIndent=='none') {
+		// do nothing
+	} else if (wrappingIndent=='same') {
+		for (let i=0;i<homeCharacter;i++) {
+			if (!isIndentChar(text[i])) break
+			width=nextWidth(width,text[i])
+		}
+	} else {
+		return undefined
+	}
+	for (let i=homeCharacter;i<cursorCharacter;i++) {
+		width=nextWidth(width,text[i])
+	}
+	return width
+}
+
+function makeNextWidthComputer(tabSize:number) {
+	return (width:number,char:string):number=>{
+		if (char=='\t') {
+			return (Math.floor(width/tabSize)+1)*tabSize
+		} else {
+			return width+1
+		}
+	}
 }

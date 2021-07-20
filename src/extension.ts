@@ -1,7 +1,7 @@
 import * as vscode from 'vscode'
 import {Mutex} from 'async-mutex'
 
-import {combineCoincidingSelections,getVerticalMoveInsertion} from './utility'
+import {combineCoincidingSelections,getVerticalMoveInsertion,getColumnInsideWrappedLine} from './utility'
 
 let lock: Mutex;
 let undoLock: Mutex;
@@ -202,20 +202,6 @@ async function cursorVerticalMoveWithoutWordWrap(editor:vscode.TextEditor,moveCo
 }
 
 async function cursorVerticalMoveWithWordWrap(editor:vscode.TextEditor,moveCommand:string) {
-	/*
-	await vscode.commands.executeCommand(moveCommand)
-	//await vscode.commands.executeCommand('cursorMove',{to:'wrappedLineStart'})
-	await vscode.commands.executeCommand('cursorMove',{to:'wrappedLineFirstNonWhitespaceCharacter'})
-
-	const wrappingIndent=vscode.workspace.getConfiguration('editor',editor.document).get('wrappingIndent')
-	console.log('wrapping indent',wrappingIndent)
-	// 'none' 'same' 'indent' 'deepIndent'
-
-	'editor.tabSize' // also indent size
-
-	//'editor.insertSpaces' // don't need this one
-	*/
-
 	const getSelectionHome=async():Promise<vscode.Selection>=>{
 		const selectionPreHome=editor.selection
 		await vscode.commands.executeCommand('cursorMove',{to:'wrappedLineEnd'})
@@ -245,7 +231,14 @@ async function cursorVerticalMoveWithWordWrap(editor:vscode.TextEditor,moveComma
 	const state=getDocumentState(editor.document)
 	if (state.column==null) {
 		const selectionHome=await getSelectionHome()
-		state.column=editor.selection.active.character-selectionHome.active.character
+		const wrappingIndent=String(vscode.workspace.getConfiguration('editor',editor.document).get('wrappingIndent'))
+		state.column=getColumnInsideWrappedLine(
+			Number(editor.options.tabSize),
+			wrappingIndent,
+			selectionHome.active.character,
+			editor.selection.active.character,
+			editor.document.lineAt(editor.selection.active).text
+		)
 		//console.log(`column is`,state.column) ///
 	}
 	await vscode.commands.executeCommand(moveCommand)
@@ -260,12 +253,12 @@ async function cursorVerticalMoveWithWordWrap(editor:vscode.TextEditor,moveComma
 		return
 	}
 	if (!selectionAfter.active.isEqual(lineAfter.range.end)) {
-		if (state.column>0) await doSillyCursorDance()
+		if (state.column!=null && state.column>0) await doSillyCursorDance()
 		return
 	}
 	const selectionAfterHome=await getSelectionHome()
 	const lineLengthAfterWrap=lineAfter.text.length-selectionAfterHome.active.character
-	if (lineLengthAfterWrap<state.column) {
+	if (state.column!=null && lineLengthAfterWrap<state.column) {
 		await doVspace(editor,' '.repeat(state.column-lineLengthAfterWrap))
 	}
 }

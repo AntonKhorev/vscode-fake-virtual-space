@@ -2,10 +2,35 @@ import {strict as assert} from 'assert'
 import * as fs from 'fs'
 import * as vscode from 'vscode'
 
-import {combineCoincidingSelections,getVerticalMoveInsertion} from '../../utility'
+import {combineCoincidingSelections,getVerticalMoveInsertion,getColumnInsideWrappedLine} from '../../utility'
 
 suite("Extension Test Suite",()=>{
-	vscode.window.showInformationMessage('Start all tests.');
+	vscode.window.showInformationMessage('Start all tests.')
+	suite("combineCoincidingSelections",()=>{
+		test("keeps single selection",()=>{
+			const selection=new vscode.Selection(new vscode.Position(10,3),new vscode.Position(12,5))
+			const result=combineCoincidingSelections([selection])
+			assert.deepEqual(result,[selection])
+		})
+		test("keeps double nonoverlapping nonempty selections",()=>{
+			const selection1=new vscode.Selection(new vscode.Position(10,3),new vscode.Position(12,5))
+			const selection2=new vscode.Selection(new vscode.Position(42,0),new vscode.Position(42,7))
+			const result=combineCoincidingSelections([selection1,selection2])
+			assert.deepEqual(result,[selection1,selection2])
+		})
+		test("keeps double nonoverlapping empty selections",()=>{
+			const selection1=new vscode.Selection(new vscode.Position(4,6),new vscode.Position(4,6))
+			const selection2=new vscode.Selection(new vscode.Position(5,1),new vscode.Position(5,1))
+			const result=combineCoincidingSelections([selection1,selection2])
+			assert.deepEqual(result,[selection1,selection2])
+		})
+		test("joins double coinciding empty selections",()=>{
+			const selection1=new vscode.Selection(new vscode.Position(4,6),new vscode.Position(4,6))
+			const selection2=new vscode.Selection(new vscode.Position(4,6),new vscode.Position(4,6))
+			const result=combineCoincidingSelections([selection1,selection2])
+			assert.deepEqual(result,[selection1])
+		})
+	})
 	suite("getVerticalMoveInsertion",()=>{
 		test("returns null when moved to a position not at eol",()=>{
 			const result=getVerticalMoveInsertion(8,
@@ -60,29 +85,41 @@ suite("Extension Test Suite",()=>{
 			)
 		})
 	})
-	suite("combineCoincidingSelections",()=>{
-		test("keeps single selection",()=>{
-			const selection=new vscode.Selection(new vscode.Position(10,3),new vscode.Position(12,5))
-			const result=combineCoincidingSelections([selection])
-			assert.deepEqual(result,[selection])
+	suite("getColumnInsideWrappedLine",()=>{
+		test("returns 0 for empty line",()=>{
+			const result=getColumnInsideWrappedLine(8,'none',
+				0,0,''
+			)
+			assert.equal(result,0)
 		})
-		test("keeps double nonoverlapping nonempty selections",()=>{
-			const selection1=new vscode.Selection(new vscode.Position(10,3),new vscode.Position(12,5))
-			const selection2=new vscode.Selection(new vscode.Position(42,0),new vscode.Position(42,7))
-			const result=combineCoincidingSelections([selection1,selection2])
-			assert.deepEqual(result,[selection1,selection2])
+		test("returns cursor column on nonwrapped line",()=>{
+			const result=getColumnInsideWrappedLine(8,'none',
+				0,3,'hello'
+			)
+			assert.equal(result,3)
 		})
-		test("keeps double nonoverlapping empty selections",()=>{
-			const selection1=new vscode.Selection(new vscode.Position(4,6),new vscode.Position(4,6))
-			const selection2=new vscode.Selection(new vscode.Position(5,1),new vscode.Position(5,1))
-			const result=combineCoincidingSelections([selection1,selection2])
-			assert.deepEqual(result,[selection1,selection2])
+		test("returns cursor-home column difference on wrapped line",()=>{
+			const result=getColumnInsideWrappedLine(8,'none',
+				6,10,
+				'hello '+
+				'world'
+			)
+			assert.equal(result,4)
 		})
-		test("joins double coinciding empty selections",()=>{
-			const selection1=new vscode.Selection(new vscode.Position(4,6),new vscode.Position(4,6))
-			const selection2=new vscode.Selection(new vscode.Position(4,6),new vscode.Position(4,6))
-			const result=combineCoincidingSelections([selection1,selection2])
-			assert.deepEqual(result,[selection1])
+		test("returns tab-size-adjusted cursor-home column difference on unwrapped line",()=>{
+			const result=getColumnInsideWrappedLine(8,'none',
+				0,12,
+			       '[helll	lo	w]o	rld'
+			)
+			assert.equal(result,18)
+		})
+		test("returns same-wrap-indent-adjusted cursor-home column difference on wrapped line",()=>{
+			const result=getColumnInsideWrappedLine(8,'same',
+				9,11,
+				'   hello '+
+				   'wo!rld'
+			)
+			assert.equal(result,5)
 		})
 	})
 	suite("Integration Tests",()=>{
