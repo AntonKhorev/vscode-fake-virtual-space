@@ -1,6 +1,8 @@
 import * as vscode from 'vscode'
 import {Mutex} from 'async-mutex'
 
+import {combineCoincidingSelections,getVerticalMoveInsertion} from './utility'
+
 let lock: Mutex;
 let undoLock: Mutex;
 
@@ -200,6 +202,20 @@ async function cursorVerticalMoveWithoutWordWrap(editor:vscode.TextEditor,moveCo
 }
 
 async function cursorVerticalMoveWithWordWrap(editor:vscode.TextEditor,moveCommand:string) {
+	/*
+	await vscode.commands.executeCommand(moveCommand)
+	//await vscode.commands.executeCommand('cursorMove',{to:'wrappedLineStart'})
+	await vscode.commands.executeCommand('cursorMove',{to:'wrappedLineFirstNonWhitespaceCharacter'})
+
+	const wrappingIndent=vscode.workspace.getConfiguration('editor',editor.document).get('wrappingIndent')
+	console.log('wrapping indent',wrappingIndent)
+	// 'none' 'same' 'indent' 'deepIndent'
+
+	'editor.tabSize' // also indent size
+
+	//'editor.insertSpaces' // don't need this one
+	*/
+
 	const getSelectionHome=async():Promise<vscode.Selection>=>{
 		const selectionPreHome=editor.selection
 		await vscode.commands.executeCommand('cursorMove',{to:'wrappedLineEnd'})
@@ -230,6 +246,7 @@ async function cursorVerticalMoveWithWordWrap(editor:vscode.TextEditor,moveComma
 	if (state.column==null) {
 		const selectionHome=await getSelectionHome()
 		state.column=editor.selection.active.character-selectionHome.active.character
+		//console.log(`column is`,state.column) ///
 	}
 	await vscode.commands.executeCommand(moveCommand)
 	const selectionAfter=editor.selection
@@ -369,77 +386,4 @@ async function doRecordedRedo(editor:vscode.TextEditor,redo:Array<[number,number
 			),replacement)
 		}
 	})
-}
-
-export function combineCoincidingSelections(selections:vscode.Selection[]):vscode.Selection[] {
-	const emptySelections:Record<number,Record<number,boolean>>={}
-	const result=[]
-	for (const selection of selections) {
-		if (!selection.isEmpty) {
-			result.push(selection)
-			continue
-		}
-		if (!emptySelections[selection.active.line]) {
-			emptySelections[selection.active.line]={}
-		}
-		if (!emptySelections[selection.active.line][selection.active.character]) {
-			emptySelections[selection.active.line][selection.active.character]=true
-			result.push(selection)
-			continue
-		}
-	}
-	return result
-}
-
-export function getVerticalMoveInsertion(
-	tabSize: number,
-	character1: number,
-	text1: string,
-	character2: number,
-	text2: string
-): string|null {
-	if (character2<text2.length) return null
-	let indent=''
-	const inSameTabSlot=(width1:number,width2:number):boolean=>{
-		return Math.floor(width1/tabSize)==Math.floor(width2/tabSize)
-	}
-	const nextWidth=(width:number,char:string):number=>{
-		if (char=='\t') {
-			return (Math.floor(width/tabSize)+1)*tabSize
-		} else {
-			return width+1
-		}
-	}
-	const nextWidthAddingToIndent=(width:number,char:string):number=>{
-		while (
-			char=='\t' &&
-			indent.length>0 &&
-			indent[indent.length-1]==' ' &&
-			inSameTabSlot(width,width-1)
-		) {
-			indent=indent.slice(0,-1)
-			width--
-		}
-		indent+=char
-		return nextWidth(width,char)
-	}
-	let prevWidth1
-	let width1=0
-	let width2=0
-	let i2=0
-	for (let i1=0;i1<character1;i1++) {
-		prevWidth1=width1
-		width1=nextWidth(width1,text1[i1])
-		while (width2<width1) {
-			if (i2<text2.length) {
-				width2=nextWidth(width2,text2[i2++])
-			} else if (text1[i1]=='\t' && inSameTabSlot(prevWidth1,width2)) {
-				width2=nextWidthAddingToIndent(width2,'\t')
-			} else {
-				width2=nextWidthAddingToIndent(width2,' ')
-			}
-		}
-	}
-	if (indent=='') return null
-	return indent
 }

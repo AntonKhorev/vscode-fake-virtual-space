@@ -1,23 +1,21 @@
 import {strict as assert} from 'assert'
 import * as fs from 'fs'
-
-// You can import and use all API from the 'vscode' module
-// as well as import your extension to test it
 import * as vscode from 'vscode'
-import * as myExtension from '../../extension'
+
+import {combineCoincidingSelections,getVerticalMoveInsertion} from '../../utility'
 
 suite("Extension Test Suite",()=>{
 	vscode.window.showInformationMessage('Start all tests.');
 	suite("getVerticalMoveInsertion",()=>{
 		test("returns null when moved to a position not at eol",()=>{
-			const result=myExtension.getVerticalMoveInsertion(8,
+			const result=getVerticalMoveInsertion(8,
 				5,"was h!ere",
 				7,"came so!mewhere for some reason"
 			)
 			assert.equal(result,null)
 		})
 		test("returns required spaces on unindented lines",()=>{
-			const result=myExtension.getVerticalMoveInsertion(8,
+			const result=getVerticalMoveInsertion(8,
 				6,"was he!re",
 				1,"!"
 			)
@@ -26,7 +24,7 @@ suite("Extension Test Suite",()=>{
 			)
 		})
 		test("returns required tabs+spaces for a blank line after tab-indented line",()=>{
-			const result=myExtension.getVerticalMoveInsertion(8,
+			const result=getVerticalMoveInsertion(8,
 				3,"\t[1!,2,3]",
 				0,""
 			)
@@ -35,7 +33,7 @@ suite("Extension Test Suite",()=>{
 			)
 		})
 		test("returns required tabs+spaces for a short line after tab-indented line",()=>{
-			const result=myExtension.getVerticalMoveInsertion(4,
+			const result=getVerticalMoveInsertion(4,
 				3,"\t[1!,2,3]",
 				1,"!"
 			)
@@ -44,7 +42,7 @@ suite("Extension Test Suite",()=>{
 			)
 		})
 		test("returns required spaces for a longer line after tab-indented line",()=>{
-			const result=myExtension.getVerticalMoveInsertion(4,
+			const result=getVerticalMoveInsertion(4,
 				3,"\t[1!,2,3]",
 				4,"!!!!"
 			)
@@ -53,7 +51,7 @@ suite("Extension Test Suite",()=>{
 			)
 		})
 		test("returns only tabs for an empty line after undindented line with tab at end",()=>{
-			const result=myExtension.getVerticalMoveInsertion(8,
+			const result=getVerticalMoveInsertion(8,
 				4,"xyz\t",
 				0,""
 			)
@@ -65,25 +63,25 @@ suite("Extension Test Suite",()=>{
 	suite("combineCoincidingSelections",()=>{
 		test("keeps single selection",()=>{
 			const selection=new vscode.Selection(new vscode.Position(10,3),new vscode.Position(12,5))
-			const result=myExtension.combineCoincidingSelections([selection])
+			const result=combineCoincidingSelections([selection])
 			assert.deepEqual(result,[selection])
 		})
 		test("keeps double nonoverlapping nonempty selections",()=>{
 			const selection1=new vscode.Selection(new vscode.Position(10,3),new vscode.Position(12,5))
 			const selection2=new vscode.Selection(new vscode.Position(42,0),new vscode.Position(42,7))
-			const result=myExtension.combineCoincidingSelections([selection1,selection2])
+			const result=combineCoincidingSelections([selection1,selection2])
 			assert.deepEqual(result,[selection1,selection2])
 		})
 		test("keeps double nonoverlapping empty selections",()=>{
 			const selection1=new vscode.Selection(new vscode.Position(4,6),new vscode.Position(4,6))
 			const selection2=new vscode.Selection(new vscode.Position(5,1),new vscode.Position(5,1))
-			const result=myExtension.combineCoincidingSelections([selection1,selection2])
+			const result=combineCoincidingSelections([selection1,selection2])
 			assert.deepEqual(result,[selection1,selection2])
 		})
 		test("joins double coinciding empty selections",()=>{
 			const selection1=new vscode.Selection(new vscode.Position(4,6),new vscode.Position(4,6))
 			const selection2=new vscode.Selection(new vscode.Position(4,6),new vscode.Position(4,6))
-			const result=myExtension.combineCoincidingSelections([selection1,selection2])
+			const result=combineCoincidingSelections([selection1,selection2])
 			assert.deepEqual(result,[selection1])
 		})
 	})
