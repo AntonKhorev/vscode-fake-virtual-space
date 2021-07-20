@@ -176,30 +176,30 @@ async function cursorVerticalMove(moveCommand:string) {
 			return
 		}
 		const isWordWrapOn=vscode.workspace.getConfiguration('editor',editor.document).get('wordWrap')=='on'
-		if (isWordWrapOn) {
-			await cursorVerticalMoveWithWrap(editor,moveCommand)
-			return
-		}
-		const selectionBefore=editor.selection
-		await vscode.commands.executeCommand(moveCommand)
-		const selectionAfter=editor.selection
-		const insertion=getVerticalMoveInsertion(
-			Number(editor.options.tabSize),
-			selectionBefore.active.character,
-			editor.document.lineAt(selectionBefore.active).text,
-			selectionAfter.active.character,
-			editor.document.lineAt(selectionAfter.active).text
-		)
-		await cleanupVspace(editor)
-		if (insertion!=null) {
-			await doVspace(editor,insertion)
-		}
+		await (isWordWrapOn?cursorVerticalMoveWithWordWrap:cursorVerticalMoveWithoutWordWrap)(editor,moveCommand)
 	} finally {
 		releaseLock()
 	}
 }
 
-async function cursorVerticalMoveWithWrap(editor:vscode.TextEditor,moveCommand:string) {
+async function cursorVerticalMoveWithoutWordWrap(editor:vscode.TextEditor,moveCommand:string) {
+	const selectionBefore=editor.selection
+	await vscode.commands.executeCommand(moveCommand)
+	const selectionAfter=editor.selection
+	const insertion=getVerticalMoveInsertion(
+		Number(editor.options.tabSize),
+		selectionBefore.active.character,
+		editor.document.lineAt(selectionBefore.active).text,
+		selectionAfter.active.character,
+		editor.document.lineAt(selectionAfter.active).text
+	)
+	await cleanupVspace(editor)
+	if (insertion!=null) {
+		await doVspace(editor,insertion)
+	}
+}
+
+async function cursorVerticalMoveWithWordWrap(editor:vscode.TextEditor,moveCommand:string) {
 	const getSelectionHome=async():Promise<vscode.Selection>=>{
 		const selectionPreHome=editor.selection
 		await vscode.commands.executeCommand('cursorMove',{to:'wrappedLineEnd'})
