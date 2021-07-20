@@ -121,6 +121,22 @@ suite("Extension Test Suite",()=>{
 			)
 			assert.equal(result,5)
 		})
+		test("returns indent-wrap-indent-adjusted cursor-home column difference on wrapped line",()=>{
+			const result=getColumnInsideWrappedLine(8,'indent',
+				9,11,
+				'   hello '+
+					'wo!rld'
+			)
+			assert.equal(result,10)
+		})
+		test("returns deepIndent-wrap-indent-adjusted cursor-home column difference on wrapped line",()=>{
+			const result=getColumnInsideWrappedLine(8,'deepIndent',
+				9,11,
+				'   hello '+
+						'wo!rld'
+			)
+			assert.equal(result,18)
+		})
 	})
 	suite("Integration Tests",()=>{
 		test("does horizontal movement vspace expansion",async()=>{

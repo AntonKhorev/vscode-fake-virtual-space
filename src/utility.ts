@@ -77,20 +77,29 @@ export function getColumnInsideWrappedLine(
 	const nextWidth=makeNextWidthComputer(tabSize)
 	const isIndentChar=(char:string):boolean=>(char==' ' || char=='\t')
 	let width=0
-	if (wrappingIndent=='none') {
-		// do nothing
-	} else if (wrappingIndent=='same') {
+	const advanceIndentWidth=():boolean=>{
+		if (homeCharacter==0) return true
+		if (wrappingIndent=='none') return true
 		for (let i=0;i<homeCharacter;i++) {
 			if (!isIndentChar(text[i])) break
 			width=nextWidth(width,text[i])
 		}
+		if (wrappingIndent=='same') return true
+		width=nextWidth(width,'\t')
+		if (wrappingIndent=='indent') return true
+		width=nextWidth(width,'\t')
+		if (wrappingIndent=='deepIndent') return true
+		return false
+	}
+	const computedIndentWidth=advanceIndentWidth()
+	if (computedIndentWidth) {
+		for (let i=homeCharacter;i<cursorCharacter;i++) {
+			width=nextWidth(width,text[i])
+		}
+		return width
 	} else {
 		return undefined
 	}
-	for (let i=homeCharacter;i<cursorCharacter;i++) {
-		width=nextWidth(width,text[i])
-	}
-	return width
 }
 
 function makeNextWidthComputer(tabSize:number) {

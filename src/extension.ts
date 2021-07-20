@@ -239,7 +239,6 @@ async function cursorVerticalMoveWithWordWrap(editor:vscode.TextEditor,moveComma
 			editor.selection.active.character,
 			editor.document.lineAt(editor.selection.active).text
 		)
-		//console.log(`column is`,state.column) ///
 	}
 	await vscode.commands.executeCommand(moveCommand)
 	const selectionAfter=editor.selection
