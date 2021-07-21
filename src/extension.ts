@@ -270,12 +270,12 @@ async function cursorVerticalMoveWithWordWrap(editor:vscode.TextEditor,moveComma
 		}
 		// TODO more advanced parkCursor in case state.column is unknown
 		await cleanupVspace(editor)
+		if (editor.selection.active.line==0 && editor.selection.active.character==0) {
+			state.column=0
+			state.ruinedColumnHiddenState=false
+			return
+		}
 	}
-	// if (editor.selection.active.line==0 && editor.selection.active.character==0) { // (0,0) is never a ruined state
-	// 	state.column=0
-	// 	state.ruinedColumnHiddenState=false
-	// 	return
-	// }
 	if (state.column==null) return
 	if (!editor.selection.active.isEqual(lineAfter.range.end)) {
 		// restore cursor position by moving it

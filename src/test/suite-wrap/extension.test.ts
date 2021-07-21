@@ -118,6 +118,18 @@ suite("Extension Test Suite for word wrap settings",()=>{
 				}
 			})
 		}
+		testCursor("creates vspace and moves up twice, cleaning vspace",
+			"\n",0,0,
+			async(assertCursor)=>{
+				assertCursor(0,0)
+				await vscode.commands.executeCommand("fakeVirtualSpace.cursorRight")
+				assertCursor(0,1)
+				await vscode.commands.executeCommand("fakeVirtualSpace.cursorUp")
+				assertCursor(0,0)
+				await vscode.commands.executeCommand("fakeVirtualSpace.cursorUp")
+				assertCursor(0,0)
+			}
+		)
 		testCursor("moves cursor down from empty line to next line",
 			"\nnext\n",0,0,
 			async(assertCursor)=>{
@@ -149,8 +161,7 @@ suite("Extension Test Suite for word wrap settings",()=>{
 			}
 		)
 		testCursor("moves cursor down through word wrap",
-			"123456789 123456789 123456789\nnext",
-			0,0,
+			"123456789 123456789 123456789\nnext",0,0,
 			async(assertCursor)=>{
 				assertCursor(0,0)
 				await vscode.commands.executeCommand("fakeVirtualSpace.cursorDown")
@@ -158,8 +169,7 @@ suite("Extension Test Suite for word wrap settings",()=>{
 			}
 		)
 		testCursor("moves cursor down along word wrap indent",
-			"   456789 123456789 123456789\nnext",
-			0,3,
+			"   456789 123456789 123456789\nnext",0,3,
 			async(assertCursor)=>{
 				assertCursor(0,3)
 				await vscode.commands.executeCommand("fakeVirtualSpace.cursorDown")
