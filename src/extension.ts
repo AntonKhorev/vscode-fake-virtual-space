@@ -1,7 +1,10 @@
 import * as vscode from 'vscode'
 import {Mutex} from 'async-mutex'
 
-import {combineCoincidingSelections,getVerticalMoveInsertion,getColumnInsideWrappedLine} from './utility'
+import {
+	combineCoincidingSelections,getVerticalMoveInsertion,
+	isKnownWrappingIndent,getColumnInsideWrappedLine,getCharacterInsideWrappedLine
+} from './utility'
 
 let lock: Mutex;
 let undoLock: Mutex;
@@ -236,14 +239,20 @@ async function cursorVerticalMoveWithWordWrap(editor:vscode.TextEditor,moveComma
 		// ruins column state, but that's recorded by cleanupVspace() below
 	}
 	const wrappingIndent=String(vscode.workspace.getConfiguration('editor',editor.document).get('wrappingIndent'))
+	if (!isKnownWrappingIndent(wrappingIndent)) {
+		await cleanupVspace(editor)
+		await vscode.commands.executeCommand(moveCommand)
+		// TODO warn about unknown wrapping indent
+		return
+	}
 	if (state.column==null) {
 		const selectionHome=await getSelectionHome()
 		state.column=getColumnInsideWrappedLine(
 			Number(editor.options.tabSize),
 			wrappingIndent,
+			editor.document.lineAt(editor.selection.active).text,
 			selectionHome.active.character,
-			editor.selection.active.character,
-			editor.document.lineAt(editor.selection.active).text
+			editor.selection.active.character
 		)
 	}
 	await vscode.commands.executeCommand(moveCommand)
@@ -251,8 +260,12 @@ async function cursorVerticalMoveWithWordWrap(editor:vscode.TextEditor,moveComma
 	// if (state.vspace!=null && state.vspace.line==editor.selection.active.line) { // that was a fix for jumping at the bottom, but it's wrong
 	// 	return
 	// }
+	let homedUnlessAtEol=false
 	if (state.vspace) {
-		if (state.column!=null) await parkCursor(editor.selection.active,lineAfter.range.end)
+		if (state.column!=null) {
+			await parkCursor(editor.selection.active,lineAfter.range.end)
+			homedUnlessAtEol=true
+		}
 		// TODO more advanced parkCursor in case state.column is unknown
 		await cleanupVspace(editor)
 	}
@@ -264,9 +277,24 @@ async function cursorVerticalMoveWithWordWrap(editor:vscode.TextEditor,moveComma
 	if (state.column==null) return
 	if (!editor.selection.active.isEqual(lineAfter.range.end)) {
 		// restore cursor position by moving it
+		if (!homedUnlessAtEol) await vscode.commands.executeCommand('cursorMove',{to:'wrappedLineStart'})
+		const selectionHomeAfter=editor.selection
+		await vscode.commands.executeCommand('cursorMove',{to:'wrappedLineEnd'})
+		const selectionEndAfter=editor.selection
 		if (state.ruinedColumnHiddenState) {
-			// TODO restore cursor column
-			// TODO maybe restore column hidden state
+			const [targetCharacter,reachedTargetColumn]=getCharacterInsideWrappedLine(
+				Number(editor.options.tabSize),
+				wrappingIndent,
+				lineAfter.text,
+				selectionHomeAfter.active.character,
+				selectionEndAfter.active.character,
+				state.column
+			)
+			if (targetCharacter<selectionEndAfter.active.character) {
+				const position=new vscode.Position(lineAfter.lineNumber,targetCharacter)
+				editor.selection=new vscode.Selection(position,position)
+			}
+			if (reachedTargetColumn) state.ruinedColumnHiddenState=false
 		}
 		// assume that this restorationon can't require later vspace insertion - maybe wrong
 	} else {
@@ -275,9 +303,9 @@ async function cursorVerticalMoveWithWordWrap(editor:vscode.TextEditor,moveComma
 		const endColumn=getColumnInsideWrappedLine(
 			Number(editor.options.tabSize),
 			wrappingIndent,
+			lineAfter.text,
 			editor.selection.active.character,
-			lineAfter.range.end.character,
-			lineAfter.text
+			lineAfter.range.end.character
 		)
 		await vscode.commands.executeCommand('cursorMove',{to:'wrappedLineEnd'})
 		if (endColumn==null) return

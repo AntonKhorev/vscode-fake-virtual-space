@@ -67,39 +67,66 @@ export function getVerticalMoveInsertion(
 	return indent
 }
 
+export function isKnownWrappingIndent(wrappingIndent: string): boolean {
+	return ['none','same','indent','deepIndent'].includes(wrappingIndent)
+}
+
 export function getColumnInsideWrappedLine(
 	tabSize: number,
-	wrappingIndent: string, // 'none' 'same' 'indent' 'deepIndent'
+	wrappingIndent: string, // 'none'|'same'|'indent'|'deepIndent',
+	text: string,
 	homeCharacter: number,
-	cursorCharacter: number,
-	text: string
-): number|undefined {
+	cursorCharacter: number
+): number {
 	const nextWidth=makeNextWidthComputer(tabSize)
+	let width=getIndentWidth(nextWidth,wrappingIndent,text,homeCharacter)
+	for (let i=homeCharacter;i<cursorCharacter;i++) {
+		width=nextWidth(width,text[i])
+	}
+	return width
+}
+
+/**
+  * @returns [optimal character to move to, if the target column is reached and not overshot by indent or tab]
+  */
+export function getCharacterInsideWrappedLine(
+	tabSize: number,
+	wrappingIndent: string, // 'none'|'same'|'indent'|'deepIndent',
+	text: string,
+	homeCharacter: number,
+	endCharacter: number,
+	column: number
+): [number,boolean] {
+	const nextWidth=makeNextWidthComputer(tabSize)
+	let width=getIndentWidth(nextWidth,wrappingIndent,text,homeCharacter)
+	let i=homeCharacter
+	for (;i<endCharacter;i++) {
+		if (column<=width) return [i,column==width]
+		width=nextWidth(width,text[i])
+	}
+	return [i,column==width]
+}
+
+function getIndentWidth(
+	nextWidth: (width:number,char:string)=>number,
+	wrappingIndent: string, // 'none'|'same'|'indent'|'deepIndent',
+	text: string,
+	homeCharacter: number
+): number {
 	const isIndentChar=(char:string):boolean=>(char==' ' || char=='\t')
 	let width=0
-	const advanceIndentWidth=():boolean=>{
-		if (homeCharacter==0) return true
-		if (wrappingIndent=='none') return true
-		for (let i=0;i<homeCharacter;i++) {
-			if (!isIndentChar(text[i])) break
-			width=nextWidth(width,text[i])
-		}
-		if (wrappingIndent=='same') return true
-		width=nextWidth(width,'\t')
-		if (wrappingIndent=='indent') return true
-		width=nextWidth(width,'\t')
-		if (wrappingIndent=='deepIndent') return true
-		return false
+	if (homeCharacter==0) return width
+	if (wrappingIndent=='none') return width
+	for (let i=0;i<homeCharacter;i++) {
+		if (!isIndentChar(text[i])) break
+		width=nextWidth(width,text[i])
 	}
-	const computedIndentWidth=advanceIndentWidth()
-	if (computedIndentWidth) {
-		for (let i=homeCharacter;i<cursorCharacter;i++) {
-			width=nextWidth(width,text[i])
-		}
-		return width
-	} else {
-		return undefined
-	}
+	if (wrappingIndent=='same') return width
+	width=nextWidth(width,'\t')
+	if (wrappingIndent=='indent') return width
+	width=nextWidth(width,'\t')
+	//if (wrappingIndent=='deepIndent') return width
+	return width
 }
 
 function makeNextWidthComputer(tabSize:number) {

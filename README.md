@@ -40,7 +40,7 @@ It also adds the undo/redo commands and binds them to *Ctrl+Z/Y*:
 - Document is shown as unsaved when fake vspace exists and vspace is not cleaned up on save. This is intended because the best solution seems to be to warn the user about saved fake space. Removing it properly is tricky if undo/redo stack is to be maintained because of reasons 1 and 2 described below.
 - Fake vspace state may get lost when saving untitled documents. Could be fixable if could store document metadata that persisted through saves with *untitled:* to *file:* uri changes.
 - Move/copy line up/down burns in fake vspace. It's easy to fix by introducing more keybindings but I'm not sure if it's worth it.
-- No fake vspace is added when the cursor is moved vertically and word wrap is on. Workarounds are being tried now. See reasons 4 and 5 below.
+- If word wrap is on, handling fake vspace requires more cursor movements to probe its actual location. See reasons 4 and 5 below, basically the current column is inaccessible directly.
 
 Some of these issues are difficult to fix because:
 
