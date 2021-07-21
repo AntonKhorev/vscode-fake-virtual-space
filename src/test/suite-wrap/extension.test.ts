@@ -94,17 +94,31 @@ suite("Extension Test Suite for word wrap settings",()=>{
 		})
 	})
 	suite("Integration Tests",()=>{
+		const assertCursor=(editor:vscode.TextEditor,line:number,character:number)=>assert.deepEqual(
+			editor.selection.active,new vscode.Position(line,character)
+		)
 		test("moves cursor down from empty line to next line",async()=>{
 			const document=await vscode.workspace.openTextDocument({content:"\nnext\n"})
 			const editor=await vscode.window.showTextDocument(document)
 			try {
 				const homePosition=new vscode.Position(0,0)
 				editor.selection=new vscode.Selection(homePosition,homePosition)
-				assert.equal(editor.selection.active.line,0)
-				assert.equal(editor.selection.active.character,0)
+				assertCursor(editor,0,0)
 				await vscode.commands.executeCommand("fakeVirtualSpace.cursorDown")
-				assert.equal(editor.selection.active.line,1)
-				assert.equal(editor.selection.active.character,0)
+				assertCursor(editor,1,0)
+			} finally {
+				await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
+			}
+		})
+		test("moves cursor up to first empty line adding vspace",async()=>{
+			const document=await vscode.workspace.openTextDocument({content:"\nnext\n"})
+			const editor=await vscode.window.showTextDocument(document)
+			try {
+				const homePosition=new vscode.Position(1,4)
+				editor.selection=new vscode.Selection(homePosition,homePosition)
+				assertCursor(editor,1,4)
+				await vscode.commands.executeCommand("fakeVirtualSpace.cursorUp")
+				assertCursor(editor,0,4)
 			} finally {
 				await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
 			}
@@ -115,20 +129,15 @@ suite("Extension Test Suite for word wrap settings",()=>{
 			try {
 				const homePosition=new vscode.Position(0,0)
 				editor.selection=new vscode.Selection(homePosition,homePosition)
-				assert.equal(editor.selection.active.line,0)
-				assert.equal(editor.selection.active.character,0)
+				assertCursor(editor,0,0)
 				await vscode.commands.executeCommand("fakeVirtualSpace.cursorDown")
-				assert.equal(editor.selection.active.line,1)
-				assert.equal(editor.selection.active.character,0)
+				assertCursor(editor,1,0)
 				await vscode.commands.executeCommand("fakeVirtualSpace.cursorUp")
-				assert.equal(editor.selection.active.line,0)
-				assert.equal(editor.selection.active.character,0)
+				assertCursor(editor,0,0)
 				await vscode.commands.executeCommand("fakeVirtualSpace.cursorEnd")
-				assert.equal(editor.selection.active.line,0)
-				assert.equal(editor.selection.active.character,5)
+				assertCursor(editor,0,5)
 				await vscode.commands.executeCommand("fakeVirtualSpace.cursorDown")
-				assert.equal(editor.selection.active.line,1)
-				assert.equal(editor.selection.active.character,5)
+				assertCursor(editor,1,5)
 			} finally {
 				await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
 			}
@@ -139,11 +148,9 @@ suite("Extension Test Suite for word wrap settings",()=>{
 			try {
 				const homePosition=new vscode.Position(0,0)
 				editor.selection=new vscode.Selection(homePosition,homePosition)
-				assert.equal(editor.selection.active.line,0)
-				assert.equal(editor.selection.active.character,0)
+				assertCursor(editor,0,0)
 				await vscode.commands.executeCommand("fakeVirtualSpace.cursorDown")
-				assert.equal(editor.selection.active.line,0)
-				assert.equal(editor.selection.active.character,20)
+				assertCursor(editor,0,20)
 			} finally {
 				await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
 			}
@@ -154,13 +161,11 @@ suite("Extension Test Suite for word wrap settings",()=>{
 			try {
 				const homePosition=new vscode.Position(0,3)
 				editor.selection=new vscode.Selection(homePosition,homePosition)
-				assert.equal(editor.selection.active.line,0)
-				assert.equal(editor.selection.active.character,3)
+				assertCursor(editor,0,3)
 				await vscode.commands.executeCommand("fakeVirtualSpace.cursorDown")
-				assert.equal(editor.selection.active.line,0)
-				assert.equal(editor.selection.active.character,20)
+				assertCursor(editor,0,20)
 				await vscode.commands.executeCommand('cursorMove',{to:'wrappedLineStart'})
-				assert.equal(editor.selection.active.character,20) // stays after wrap point
+				assertCursor(editor,0,20) // stays after wrap point
 			} finally {
 				await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
 			}
