@@ -4,7 +4,7 @@
 	"description": "Implements virtual space (ability to move cursor beyond eol) with temporarily inserted actual space characters.",
 	"publisher": "AntonKhorev",
 	"repository": "https://github.com/AntonKhorev/vscode-fake-virtual-space",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"engines": {
 		"vscode": "^1.56.0"
 	},
