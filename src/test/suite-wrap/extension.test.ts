@@ -12,8 +12,7 @@ suite("Extension Test Suite for word wrap settings",()=>{
 				editor.selection=new vscode.Selection(homePosition,homePosition)
 				assert.equal(editor.selection.active.line,0)
 				assert.equal(editor.selection.active.character,0)
-				//await vscode.commands.executeCommand("fakeVirtualSpace.cursorDown")
-				await vscode.commands.executeCommand("cursorDown")
+				await vscode.commands.executeCommand("fakeVirtualSpace.cursorDown")
 				assert.equal(editor.selection.active.line,0)
 				assert.equal(editor.selection.active.character,20)
 			} finally {
