@@ -118,7 +118,7 @@ suite("Extension Test Suite for word wrap settings",()=>{
 				}
 			})
 		}
-		testCursor("creates vspace and moves up twice, cleaning vspace on first move",
+		testCursor("creates vspace on top line and moves up twice, cleaning vspace on first move",
 			"\n",0,0,
 			async(assertCursor)=>{
 				assertCursor(0,0)
@@ -130,7 +130,7 @@ suite("Extension Test Suite for word wrap settings",()=>{
 				assertCursor(0,0)
 			}
 		)
-		testCursor("creates vspace and moves up twice, cleaning vspace on second move",
+		testCursor("creates vspace on second line and moves up twice, cleaning vspace on second move",
 			"\n\n",1,0,
 			async(assertCursor)=>{
 				assertCursor(1,0)
@@ -140,6 +140,18 @@ suite("Extension Test Suite for word wrap settings",()=>{
 				assertCursor(0,1)
 				await vscode.commands.executeCommand("fakeVirtualSpace.cursorUp")
 				assertCursor(0,0)
+			}
+		)
+		testCursor("creates vspace on bottom and moves down twice, cleaning vspace on first move",
+			"\n",1,0,
+			async(assertCursor)=>{
+				assertCursor(1,0)
+				await vscode.commands.executeCommand("fakeVirtualSpace.cursorRight")
+				assertCursor(1,1)
+				await vscode.commands.executeCommand("fakeVirtualSpace.cursorDown")
+				assertCursor(1,0)
+				await vscode.commands.executeCommand("fakeVirtualSpace.cursorDown")
+				assertCursor(1,0)
 			}
 		)
 		testCursor("moves cursor down from empty line to next line",

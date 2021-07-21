@@ -260,9 +260,6 @@ async function cursorVerticalMoveWithWordWrap(editor:vscode.TextEditor,moveComma
 	const selectionBefore=editor.selection
 	await vscode.commands.executeCommand(moveCommand)
 	const lineAfter=editor.document.lineAt(editor.selection.active)
-	// if (state.vspace!=null && state.vspace.line==editor.selection.active.line) { // that was a fix for jumping at the bottom, but it's wrong
-	// 	return
-	// }
 	let homedUnlessAtEol=false
 	if (state.vspace) {
 		if (state.column!=null) {
@@ -271,7 +268,11 @@ async function cursorVerticalMoveWithWordWrap(editor:vscode.TextEditor,moveComma
 		}
 		// TODO more advanced parkCursor in case state.column is unknown
 		await cleanupVspace(editor)
-		if (selectionBefore.active.line==0 && editor.selection.active.line==0 && editor.selection.active.character==0) {
+		const L=editor.document.lineCount-1
+		if (
+			(selectionBefore.active.line==0 && editor.selection.active.line==0 && editor.selection.active.character==0) ||
+			(selectionBefore.active.line==L && editor.selection.active.line==L && editor.selection.active.character==0)
+		) {
 			state.column=0
 			state.ruinedColumnHiddenState=false
 			return
