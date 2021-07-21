@@ -2,7 +2,7 @@ import {strict as assert} from 'assert'
 import * as fs from 'fs'
 import * as vscode from 'vscode'
 
-import {combineCoincidingSelections,getVerticalMoveInsertion,getColumnInsideWrappedLine} from '../../utility'
+import {combineCoincidingSelections,getVerticalMoveInsertion} from '../../utility'
 
 suite("Extension Test Suite for normal settings",()=>{
 	vscode.window.showInformationMessage('Start non-word-wrap tests.')
@@ -83,59 +83,6 @@ suite("Extension Test Suite for normal settings",()=>{
 			assert.equal(result,
 				"\t"
 			)
-		})
-	})
-	suite("getColumnInsideWrappedLine",()=>{
-		test("returns 0 for empty line",()=>{
-			const result=getColumnInsideWrappedLine(8,'none',
-				0,0,''
-			)
-			assert.equal(result,0)
-		})
-		test("returns cursor column on nonwrapped line",()=>{
-			const result=getColumnInsideWrappedLine(8,'none',
-				0,3,'hello'
-			)
-			assert.equal(result,3)
-		})
-		test("returns cursor-home column difference on wrapped line",()=>{
-			const result=getColumnInsideWrappedLine(8,'none',
-				6,10,
-				'hello '+
-				'world'
-			)
-			assert.equal(result,4)
-		})
-		test("returns tab-size-adjusted cursor-home column difference on unwrapped line",()=>{
-			const result=getColumnInsideWrappedLine(8,'none',
-				0,12,
-			       '[helll	lo	w]o	rld'
-			)
-			assert.equal(result,18)
-		})
-		test("returns same-wrap-indent-adjusted cursor-home column difference on wrapped line",()=>{
-			const result=getColumnInsideWrappedLine(8,'same',
-				9,11,
-				'   hello '+
-				   'wo!rld'
-			)
-			assert.equal(result,5)
-		})
-		test("returns indent-wrap-indent-adjusted cursor-home column difference on wrapped line",()=>{
-			const result=getColumnInsideWrappedLine(8,'indent',
-				9,11,
-				'   hello '+
-					'wo!rld'
-			)
-			assert.equal(result,10)
-		})
-		test("returns deepIndent-wrap-indent-adjusted cursor-home column difference on wrapped line",()=>{
-			const result=getColumnInsideWrappedLine(8,'deepIndent',
-				9,11,
-				'   hello '+
-						'wo!rld'
-			)
-			assert.equal(result,18)
 		})
 	})
 	suite("Integration Tests",()=>{

@@ -9,13 +9,16 @@ let undoLock: Mutex;
 class DocumentState {
 	version:number
 	vspace:vscode.Position|undefined
-	redos:Array<Array<[number,number,string]>>
-	perturbedRedoStack:boolean
+	redos:Array<Array<[number,number,string]>>=[]
+	perturbedRedoStack:boolean=false
 	column:number|undefined
+	ruinedColumnHiddenState:boolean=false
 	constructor(version:number) {
 		this.version=version
-		this.redos=[]
-		this.perturbedRedoStack=false
+	}
+	resetColumn() {
+		this.column=undefined
+		this.ruinedColumnHiddenState=false
 	}
 	async edit(editor:vscode.TextEditor,buildEdit:(editBuilder:vscode.TextEditorEdit)=>void) {
 		this.perturbedRedoStack=true
@@ -80,7 +83,7 @@ async function onDidChangeTextEditorSelectionListener(event:vscode.TextEditorSel
 	try {
 		const editor=event.textEditor
 		const state=getDocumentState(editor.document)
-		state.column=undefined
+		state.resetColumn()
 		if (editor.selections.length!=1) {
 			await cleanupVspace(editor)
 			return
@@ -132,7 +135,7 @@ async function cursorHorizontalMove(moveCommand:string,moveDelta:number) {
 		const position=editor.selection.active;
 		const text=editor.document.lineAt(position).text
 		const state=getDocumentState(editor.document)
-		state.column=undefined
+		state.resetColumn()
 		if (moveDelta>0 && position.character<text.length) {
 			await vscode.commands.executeCommand(moveCommand)
 			return
@@ -205,7 +208,9 @@ async function cursorVerticalMoveWithoutWordWrap(editor:vscode.TextEditor,moveCo
 }
 
 async function cursorVerticalMoveWithWordWrap(editor:vscode.TextEditor,moveCommand:string) {
+	const state=getDocumentState(editor.document)
 	const getSelectionHome=async():Promise<vscode.Selection>=>{
+		state.ruinedColumnHiddenState=true
 		const selectionPreHome=editor.selection
 		await vscode.commands.executeCommand('cursorMove',{to:'wrappedLineEnd'})
 		const wasAtEnd=selectionPreHome.isEqual(editor.selection)
@@ -223,18 +228,16 @@ async function cursorVerticalMoveWithWordWrap(editor:vscode.TextEditor,moveComma
 		}
 		return selectionHome
 	}
-	const doSillyCursorDance=async()=>{
-		// when word wrap is on, selection.active doesn't fully describe caret position on the screen
-		//   if caret is exactly at the wrap point, it could be either after the last char before the wrap
-		//   or before the first char after the wrap
-		// do a silly cursor dance to fix that
-		await vscode.commands.executeCommand('cursorLeft')
-		await vscode.commands.executeCommand('cursorRight')
+	const parkCursor=async(cursor:vscode.Position,eol:vscode.Position)=>{
+		// makes sure that cursor after cleanup stays on the same wrapped line
+		if (cursor.character==0) return // always safe
+		if (cursor.isEqual(eol)) return // also safe and required to be kept by later logic
+		await vscode.commands.executeCommand('cursorMove',{to:'wrappedLineStart'})
+		// ruins column state, but that's recorded by cleanupVspace() below
 	}
-	const state=getDocumentState(editor.document)
+	const wrappingIndent=String(vscode.workspace.getConfiguration('editor',editor.document).get('wrappingIndent'))
 	if (state.column==null) {
 		const selectionHome=await getSelectionHome()
-		const wrappingIndent=String(vscode.workspace.getConfiguration('editor',editor.document).get('wrappingIndent'))
 		state.column=getColumnInsideWrappedLine(
 			Number(editor.options.tabSize),
 			wrappingIndent,
@@ -244,24 +247,44 @@ async function cursorVerticalMoveWithWordWrap(editor:vscode.TextEditor,moveComma
 		)
 	}
 	await vscode.commands.executeCommand(moveCommand)
-	const selectionAfter=editor.selection
-	const lineAfter=editor.document.lineAt(selectionAfter.active)
-	if (state.vspace!=null && state.vspace.line==selectionAfter.active.line) {
-		return
+	const lineAfter=editor.document.lineAt(editor.selection.active)
+	// if (state.vspace!=null && state.vspace.line==editor.selection.active.line) { // that was a fix for jumping at the bottom, but it's wrong
+	// 	return
+	// }
+	if (state.vspace) {
+		if (state.column!=null) await parkCursor(editor.selection.active,lineAfter.range.end)
+		// TODO more advanced parkCursor in case state.column is unknown
+		await cleanupVspace(editor)
 	}
-	await cleanupVspace(editor)
-	if (selectionAfter.active.line==0 && selectionAfter.active.character==0) {
+	if (editor.selection.active.line==0 && editor.selection.active.character==0) { // (0,0) is never a ruined state
 		state.column=0
+		state.ruinedColumnHiddenState=false
 		return
 	}
-	if (!selectionAfter.active.isEqual(lineAfter.range.end)) {
-		if (state.column!=null && state.column>0) await doSillyCursorDance()
-		return
-	}
-	const selectionAfterHome=await getSelectionHome()
-	const lineLengthAfterWrap=lineAfter.text.length-selectionAfterHome.active.character
-	if (state.column!=null && lineLengthAfterWrap<state.column) {
-		await doVspace(editor,' '.repeat(state.column-lineLengthAfterWrap))
+	if (state.column==null) return
+	if (!editor.selection.active.isEqual(lineAfter.range.end)) {
+		// restore cursor position by moving it
+		if (state.ruinedColumnHiddenState) {
+			// TODO restore cursor column
+			// TODO maybe restore column hidden state
+		}
+		// assume that this restorationon can't require later vspace insertion - maybe wrong
+	} else {
+		// restore cursor position by adding vspace
+		await vscode.commands.executeCommand('cursorMove',{to:'wrappedLineStart'})
+		const endColumn=getColumnInsideWrappedLine(
+			Number(editor.options.tabSize),
+			wrappingIndent,
+			editor.selection.active.character,
+			lineAfter.range.end.character,
+			lineAfter.text
+		)
+		await vscode.commands.executeCommand('cursorMove',{to:'wrappedLineEnd'})
+		if (endColumn==null) return
+		if (endColumn<state.column) {
+			await doVspace(editor,' '.repeat(state.column-endColumn)) // TODO use getVerticalMoveInsertion to support inserting tabs
+			state.ruinedColumnHiddenState=false
+		}
 	}
 }
 
@@ -271,6 +294,7 @@ async function cleanupVspace(editor:vscode.TextEditor) {
 	state.vspace=undefined
 	await undoKeepingSelection(editor)
 	state.version=editor.document.version
+	state.ruinedColumnHiddenState=true
 }
 
 async function undoVspaceIfNotInside(editor:vscode.TextEditor) {
@@ -281,6 +305,7 @@ async function undoVspaceIfNotInside(editor:vscode.TextEditor) {
 	state.vspace=undefined
 	await undoKeepingSelection(editor)
 	state.version=editor.document.version
+	state.ruinedColumnHiddenState=true
 }
 
 async function doVspace(editor:vscode.TextEditor,insertion:string) {
@@ -317,6 +342,7 @@ async function undo() {
 		if (state.vspace) {
 			await vscode.commands.executeCommand('undo')
 			state.vspace=undefined
+			state.resetColumn()
 			state.version=editor.document.version
 		}
 	} finally {
@@ -360,6 +386,7 @@ async function redo() {
 			if (state.vspace) {
 				await vscode.commands.executeCommand('undo')
 				state.vspace=undefined
+				state.resetColumn()
 			}
 			await doRecordedRedo(editor,redo)
 		} else {
