@@ -4,8 +4,8 @@ import * as vscode from 'vscode'
 
 import {combineCoincidingSelections,getVerticalMoveInsertion,getColumnInsideWrappedLine} from '../../utility'
 
-suite("Extension Test Suite",()=>{
-	vscode.window.showInformationMessage('Start all tests.')
+suite("Extension Test Suite for normal settings",()=>{
+	vscode.window.showInformationMessage('Start non-word-wrap tests.')
 	suite("combineCoincidingSelections",()=>{
 		test("keeps single selection",()=>{
 			const selection=new vscode.Selection(new vscode.Position(10,3),new vscode.Position(12,5))

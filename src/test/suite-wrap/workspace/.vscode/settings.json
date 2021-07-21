@@ -1,0 +1,5 @@
+{
+	"editor.wordWrap": "wordWrapColumn",
+	"editor.wordWrapColumn": 20,
+	"editor.wrappingIndent": "same"
+}
