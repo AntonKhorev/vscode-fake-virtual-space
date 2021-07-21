@@ -109,6 +109,30 @@ suite("Extension Test Suite for word wrap settings",()=>{
 				await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
 			}
 		})
+		test("moves cursor down-up-end-down to next shorter line",async()=>{
+			const document=await vscode.workspace.openTextDocument({content:"asdfg\nas\n"})
+			const editor=await vscode.window.showTextDocument(document)
+			try {
+				const homePosition=new vscode.Position(0,0)
+				editor.selection=new vscode.Selection(homePosition,homePosition)
+				assert.equal(editor.selection.active.line,0)
+				assert.equal(editor.selection.active.character,0)
+				await vscode.commands.executeCommand("fakeVirtualSpace.cursorDown")
+				assert.equal(editor.selection.active.line,1)
+				assert.equal(editor.selection.active.character,0)
+				await vscode.commands.executeCommand("fakeVirtualSpace.cursorUp")
+				assert.equal(editor.selection.active.line,0)
+				assert.equal(editor.selection.active.character,0)
+				await vscode.commands.executeCommand("fakeVirtualSpace.cursorEnd")
+				assert.equal(editor.selection.active.line,0)
+				assert.equal(editor.selection.active.character,5)
+				await vscode.commands.executeCommand("fakeVirtualSpace.cursorDown")
+				assert.equal(editor.selection.active.line,1)
+				assert.equal(editor.selection.active.character,5)
+			} finally {
+				await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
+			}
+		})
 		test("moves cursor down through word wrap",async()=>{
 			const document=await vscode.workspace.openTextDocument({content:"123456789 123456789 123456789\nnext"})
 			const editor=await vscode.window.showTextDocument(document)

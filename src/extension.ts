@@ -114,6 +114,8 @@ async function cursorEnd() {
 	const releaseLock=await lock.acquire()
 	try {
 		const editor=vscode.window.activeTextEditor!
+		const state=getDocumentState(editor.document)
+		state.resetColumn()
 		await cleanupVspace(editor)
 		await vscode.commands.executeCommand('cursorEnd')
 	} finally {
