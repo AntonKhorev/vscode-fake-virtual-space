@@ -94,81 +94,79 @@ suite("Extension Test Suite for word wrap settings",()=>{
 		})
 	})
 	suite("Integration Tests",()=>{
-		const assertCursor=(editor:vscode.TextEditor,line:number,character:number)=>assert.deepEqual(
-			editor.selection.active,new vscode.Position(line,character)
+		const testCursor=async(
+			title:string,
+			content:string,
+			startLine:number,
+			startCharacter:number,
+			testBody:(
+				assertCursor:(line:number,character:number)=>void
+			)=>void
+		)=>{
+			test(title,async()=>{
+				const document=await vscode.workspace.openTextDocument({content})
+				const editor=await vscode.window.showTextDocument(document)
+				const assertCursor=(line:number,character:number)=>assert.deepEqual(
+					editor.selection.active,new vscode.Position(line,character)
+				)
+				try {
+					const startPosition=new vscode.Position(startLine,startCharacter)
+					editor.selection=new vscode.Selection(startPosition,startPosition)
+					await testBody(assertCursor)
+				} finally {
+					await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
+				}
+			})
+		}
+		testCursor("moves cursor down from empty line to next line",
+			"\nnext\n",0,0,
+			async(assertCursor)=>{
+				assertCursor(0,0)
+				await vscode.commands.executeCommand("fakeVirtualSpace.cursorDown")
+				assertCursor(1,0)
+			}
 		)
-		test("moves cursor down from empty line to next line",async()=>{
-			const document=await vscode.workspace.openTextDocument({content:"\nnext\n"})
-			const editor=await vscode.window.showTextDocument(document)
-			try {
-				const homePosition=new vscode.Position(0,0)
-				editor.selection=new vscode.Selection(homePosition,homePosition)
-				assertCursor(editor,0,0)
-				await vscode.commands.executeCommand("fakeVirtualSpace.cursorDown")
-				assertCursor(editor,1,0)
-			} finally {
-				await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
-			}
-		})
-		test("moves cursor up to first empty line adding vspace",async()=>{
-			const document=await vscode.workspace.openTextDocument({content:"\nnext\n"})
-			const editor=await vscode.window.showTextDocument(document)
-			try {
-				const homePosition=new vscode.Position(1,4)
-				editor.selection=new vscode.Selection(homePosition,homePosition)
-				assertCursor(editor,1,4)
+		testCursor("moves cursor up to first empty line adding vspace",
+			"\nnext\n",1,4,
+			async(assertCursor)=>{
+				assertCursor(1,4)
 				await vscode.commands.executeCommand("fakeVirtualSpace.cursorUp")
-				assertCursor(editor,0,4)
-			} finally {
-				await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
+				assertCursor(0,4)
 			}
-		})
-		test("moves cursor down-up-end-down to next shorter line",async()=>{
-			const document=await vscode.workspace.openTextDocument({content:"asdfg\nas\n"})
-			const editor=await vscode.window.showTextDocument(document)
-			try {
-				const homePosition=new vscode.Position(0,0)
-				editor.selection=new vscode.Selection(homePosition,homePosition)
-				assertCursor(editor,0,0)
+		)
+		testCursor("moves cursor down-up-end-down to next shorter line",
+			"asdfg\nas\n",0,0,
+			async(assertCursor)=>{
+				assertCursor(0,0)
 				await vscode.commands.executeCommand("fakeVirtualSpace.cursorDown")
-				assertCursor(editor,1,0)
+				assertCursor(1,0)
 				await vscode.commands.executeCommand("fakeVirtualSpace.cursorUp")
-				assertCursor(editor,0,0)
+				assertCursor(0,0)
 				await vscode.commands.executeCommand("fakeVirtualSpace.cursorEnd")
-				assertCursor(editor,0,5)
+				assertCursor(0,5)
 				await vscode.commands.executeCommand("fakeVirtualSpace.cursorDown")
-				assertCursor(editor,1,5)
-			} finally {
-				await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
+				assertCursor(1,5)
 			}
-		})
-		test("moves cursor down through word wrap",async()=>{
-			const document=await vscode.workspace.openTextDocument({content:"123456789 123456789 123456789\nnext"})
-			const editor=await vscode.window.showTextDocument(document)
-			try {
-				const homePosition=new vscode.Position(0,0)
-				editor.selection=new vscode.Selection(homePosition,homePosition)
-				assertCursor(editor,0,0)
+		)
+		testCursor("moves cursor down through word wrap",
+			"123456789 123456789 123456789\nnext",
+			0,0,
+			async(assertCursor)=>{
+				assertCursor(0,0)
 				await vscode.commands.executeCommand("fakeVirtualSpace.cursorDown")
-				assertCursor(editor,0,20)
-			} finally {
-				await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
+				assertCursor(0,20)
 			}
-		})
-		test("moves cursor down along word wrap indent",async()=>{
-			const document=await vscode.workspace.openTextDocument({content:"   456789 123456789 123456789\nnext"})
-			const editor=await vscode.window.showTextDocument(document)
-			try {
-				const homePosition=new vscode.Position(0,3)
-				editor.selection=new vscode.Selection(homePosition,homePosition)
-				assertCursor(editor,0,3)
+		)
+		testCursor("moves cursor down along word wrap indent",
+			"   456789 123456789 123456789\nnext",
+			0,3,
+			async(assertCursor)=>{
+				assertCursor(0,3)
 				await vscode.commands.executeCommand("fakeVirtualSpace.cursorDown")
-				assertCursor(editor,0,20)
+				assertCursor(0,20)
 				await vscode.commands.executeCommand('cursorMove',{to:'wrappedLineStart'})
-				assertCursor(editor,0,20) // stays after wrap point
-			} finally {
-				await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
+				assertCursor(0,20) // stays after wrap point
 			}
-		})
+		)
 	})
 })
