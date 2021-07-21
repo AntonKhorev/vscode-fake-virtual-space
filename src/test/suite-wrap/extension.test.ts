@@ -94,6 +94,21 @@ suite("Extension Test Suite for word wrap settings",()=>{
 		})
 	})
 	suite("Integration Tests",()=>{
+		test("moves cursor down from empty line to next line",async()=>{
+			const document=await vscode.workspace.openTextDocument({content:"\nnext\n"})
+			const editor=await vscode.window.showTextDocument(document)
+			try {
+				const homePosition=new vscode.Position(0,0)
+				editor.selection=new vscode.Selection(homePosition,homePosition)
+				assert.equal(editor.selection.active.line,0)
+				assert.equal(editor.selection.active.character,0)
+				await vscode.commands.executeCommand("fakeVirtualSpace.cursorDown")
+				assert.equal(editor.selection.active.line,1)
+				assert.equal(editor.selection.active.character,0)
+			} finally {
+				await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
+			}
+		})
 		test("moves cursor down through word wrap",async()=>{
 			const document=await vscode.workspace.openTextDocument({content:"123456789 123456789 123456789\nnext"})
 			const editor=await vscode.window.showTextDocument(document)

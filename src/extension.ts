@@ -277,11 +277,11 @@ async function cursorVerticalMoveWithWordWrap(editor:vscode.TextEditor,moveComma
 	if (state.column==null) return
 	if (!editor.selection.active.isEqual(lineAfter.range.end)) {
 		// restore cursor position by moving it
-		if (!homedUnlessAtEol) await vscode.commands.executeCommand('cursorMove',{to:'wrappedLineStart'})
-		const selectionHomeAfter=editor.selection
-		await vscode.commands.executeCommand('cursorMove',{to:'wrappedLineEnd'})
-		const selectionEndAfter=editor.selection
 		if (state.ruinedColumnHiddenState) {
+			if (!homedUnlessAtEol) await vscode.commands.executeCommand('cursorMove',{to:'wrappedLineStart'})
+			const selectionHomeAfter=editor.selection
+			await vscode.commands.executeCommand('cursorMove',{to:'wrappedLineEnd'})
+			const selectionEndAfter=editor.selection
 			const [targetCharacter,reachedTargetColumn]=getCharacterInsideWrappedLine(
 				Number(editor.options.tabSize),
 				wrappingIndent,
