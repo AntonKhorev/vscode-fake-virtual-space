@@ -2,6 +2,10 @@
 
 All notable changes to the "vscode-fake-virtual-space" extension will be documented in this file.
 
+## 0.1.3
+
+- If saved file with fake vspace, offer to clean up and save again
+
 ## 0.1.2
 
 - Implement fake vspace on vertical movement with word wrap

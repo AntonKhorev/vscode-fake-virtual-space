@@ -42,18 +42,16 @@ export function activate(context: vscode.ExtensionContext) {
 	if (!lock) lock=new Mutex() // see for reasons: https://github.com/jemc/vscode-implicit-indent
 	if (!undoLock) undoLock=new Mutex()
 	vscode.workspace.onDidChangeTextDocument(onDidChangeTextDocumentListener)
+	/*
 	vscode.workspace.onWillSaveTextDocument(event=>{
 		// could just run undo if was sure that document text is in focus, but there's no way to check it
-		//     return vscode.commands.executeCommand('undo')
-		// yes, you can save from find popup, undos land on popup text input in this case
-		const state=getDocumentState(event.document)
-		if (!state.vspace) return
-		vscode.window.showInformationMessage('Saved with fake virtual space - unless there are other onsave handlers that clean it up. Consider saving from outside of virtual space.')
-		// this is the cleanup code which damages redo stack - we'd rather not do anything:
-		// const lineRange=event.document.lineAt(state.vspace).range
-		// const edit=vscode.TextEdit.delete(new vscode.Range(state.vspace,lineRange.end))
-		// event.waitUntil((async()=>[edit])())
+		// otherwise could do the following a cleanup edit, but it damages redo stack - we'd rather not do anything:
+		const lineRange=event.document.lineAt(state.vspace).range
+		const edit=vscode.TextEdit.delete(new vscode.Range(state.vspace,lineRange.end))
+		event.waitUntil((async()=>[edit])())
 	})
+	*/
+	vscode.workspace.onDidSaveTextDocument(onDidSaveTextDocumentListener)
 	vscode.workspace.onDidCloseTextDocument(document=>{
 		documentStates.delete(document)
 	})
@@ -66,12 +64,11 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand('fakeVirtualSpace.cursorEnd',cursorEnd),
 		vscode.commands.registerCommand('fakeVirtualSpace.undo',undo),
 		vscode.commands.registerCommand('fakeVirtualSpace.redo',redo)
-		// TODO have find handler that cleans up vspace first
 	)
 }
 
 export function deactivate() {
-	// TODO do undos if necessary
+	// TODO do undos if necessary - or warn
 }
 
 async function onDidChangeTextEditorSelectionListener(event:vscode.TextEditorSelectionChangeEvent) {
@@ -108,6 +105,24 @@ async function onDidChangeTextEditorSelectionListener(event:vscode.TextEditorSel
 	} finally {
 		releaseLock()
 	}
+}
+
+async function onDidSaveTextDocumentListener(document:vscode.TextDocument) {
+	const state=getDocumentState(document)
+	if (!state.vspace) return
+	vscode.window.showInformationMessage(
+		`Saved ${document.fileName} with fake virtual space`,
+		'Clean up and save again'
+	).then(async(value)=>{
+		if (value==null) return
+		if (document.isClosed) {
+			vscode.window.showErrorMessage(`File ${document.fileName} can't be saved again because it was closed`)
+			return
+		}
+		const editor=await vscode.window.showTextDocument(document)
+		await cleanupVspace(editor)
+		await document.save()
+	})
 }
 
 async function cursorEnd() {
