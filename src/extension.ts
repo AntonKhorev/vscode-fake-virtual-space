@@ -12,12 +12,17 @@ let undoLock: Mutex;
 class DocumentState {
 	version:number
 	vspace:vscode.Position|undefined
+	ruinedUndoStopPosition:boolean=false
 	redos:Array<Array<[number,number,string]>>=[]
 	perturbedRedoStack:boolean=false
 	column:number|undefined
 	ruinedColumnHiddenState:boolean=false
 	constructor(version:number) {
 		this.version=version
+	}
+	resetVspace() {
+		this.vspace=undefined
+		this.ruinedUndoStopPosition=false
 	}
 	resetColumn() {
 		this.column=undefined
@@ -45,6 +50,8 @@ export function activate(context: vscode.ExtensionContext) {
 	/*
 	vscode.workspace.onWillSaveTextDocument(event=>{
 		// could just run undo if was sure that document text is in focus, but there's no way to check it
+		// maybe could force focus, but that's unexpected behavior
+		// there's also 'Save All' then some documents are surely not in focus
 		// otherwise could do the following a cleanup edit, but it damages redo stack - we'd rather not do anything:
 		const lineRange=event.document.lineAt(state.vspace).range
 		const edit=vscode.TextEdit.delete(new vscode.Range(state.vspace,lineRange.end))
@@ -109,6 +116,7 @@ async function onDidChangeTextEditorSelectionListener(event:vscode.TextEditorSel
 
 async function onDidSaveTextDocumentListener(document:vscode.TextDocument) {
 	const state=getDocumentState(document)
+	state.ruinedUndoStopPosition=true
 	if (!state.vspace) return
 	vscode.window.showInformationMessage(
 		`Saved ${document.fileName} with fake virtual space`,
@@ -156,6 +164,11 @@ async function cursorHorizontalMove(moveCommand:string,moveDelta:number) {
 		const text=editor.document.lineAt(position).text
 		const state=getDocumentState(editor.document)
 		state.resetColumn()
+		if (state.vspace && state.ruinedUndoStopPosition && position.character>=text.length) {
+			const vspaceText=text.substr(state.vspace.character)
+			await cleanupVspace(editor)
+			await doVspace(editor,vspaceText)
+		}
 		if (moveDelta>0 && position.character<text.length) {
 			await vscode.commands.executeCommand(moveCommand)
 			return
@@ -338,7 +351,7 @@ async function cursorVerticalMoveWithWordWrap(editor:vscode.TextEditor,moveComma
 async function cleanupVspace(editor:vscode.TextEditor) {
 	const state=getDocumentState(editor.document)
 	if (!state.vspace) return
-	state.vspace=undefined
+	state.resetVspace()
 	await undoKeepingSelection(editor)
 	state.version=editor.document.version
 	state.ruinedColumnHiddenState=true
@@ -349,7 +362,7 @@ async function undoVspaceIfNotInside(editor:vscode.TextEditor) {
 	if (!state.vspace) return
 	const position=editor.selection.active
 	if (position.line==state.vspace.line && position.character>=state.vspace.character) return
-	state.vspace=undefined
+	state.resetVspace()
 	await undoKeepingSelection(editor)
 	state.version=editor.document.version
 	state.ruinedColumnHiddenState=true
@@ -388,7 +401,7 @@ async function undo() {
 		const state=getDocumentState(editor.document)
 		if (state.vspace) {
 			await vscode.commands.executeCommand('undo')
-			state.vspace=undefined
+			state.resetVspace()
 			state.resetColumn()
 			state.version=editor.document.version
 		}
@@ -432,7 +445,7 @@ async function redo() {
 		if (state.perturbedRedoStack && redo) {
 			if (state.vspace) {
 				await vscode.commands.executeCommand('undo')
-				state.vspace=undefined
+				state.resetVspace()
 				state.resetColumn()
 			}
 			await doRecordedRedo(editor,redo)

@@ -5,6 +5,7 @@ All notable changes to the "vscode-fake-virtual-space" extension will be documen
 ## 0.1.3
 
 - If saved file with fake vspace, offer to clean up and save again
+- Fix horizontal movement in vspace after save
 
 ## 0.1.2
 

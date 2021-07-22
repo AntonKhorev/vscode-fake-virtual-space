@@ -322,6 +322,33 @@ suite("Extension Test Suite for normal settings",()=>{
 				await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
 			}
 		})
+		test("handles horizontal vspace changes after save",async()=>{
+			const filename=`${__dirname}/vspace-save-and-horizontal-move-test.txt`
+			fs.writeFileSync(filename,"\n")
+			try {
+				const document=await vscode.workspace.openTextDocument(filename)
+				const editor=await vscode.window.showTextDocument(document)
+				try {
+					const startPosition=new vscode.Position(0,0)
+					editor.selection=new vscode.Selection(startPosition,startPosition)
+					assert.equal(document.getText(),"\n")
+					await vscode.commands.executeCommand("fakeVirtualSpace.cursorRight")
+					assert.equal(document.getText()," \n")
+					await vscode.commands.executeCommand("fakeVirtualSpace.cursorRight")
+					assert.equal(document.getText(),"  \n")
+					await document.save()
+					assert.equal(document.getText(),"  \n")
+					await vscode.commands.executeCommand("fakeVirtualSpace.cursorLeft")
+					assert.equal(document.getText()," \n")
+					await vscode.commands.executeCommand("fakeVirtualSpace.cursorDown")
+					assert.equal(document.getText(),"\n ")
+				} finally {
+					await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
+				}
+			} finally {
+				fs.unlinkSync(filename)
+			}
+		})
 		/* making these work is too much trouble
 		test("cleans up vspace on save",async()=>{
 			const filename=`${__dirname}/vspace-save-cleanup-test.txt`
