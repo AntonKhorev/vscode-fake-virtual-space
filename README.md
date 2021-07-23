@@ -41,6 +41,7 @@ It also adds the undo/redo commands and binds them to *Ctrl+Z/Y*:
 - Fake vspace state may get lost when saving untitled documents. Could be fixable if could store document metadata that persisted through saves with *untitled:* to *file:* uri changes.
 - Move/copy line up/down burns in fake vspace. It's easy to fix by introducing more keybindings but I'm not sure if it's worth it.
 - If word wrap is on, handling fake vspace requires more cursor movements to probe its actual location. See reasons 4 and 5 below, basically the current column is inaccessible directly.
+- Word wrap support is going to get broken if VS Code's logic behind *Editor: Word Wrap* (`editor.wordWrap`) option changes or if additional values are introduced. Currently supported values for this option are: `none`, `same`, `indent`, `deepIndent`.
 
 Some of these issues are difficult to fix because:
 
